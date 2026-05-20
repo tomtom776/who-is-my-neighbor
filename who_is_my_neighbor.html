@@ -1505,52 +1505,46 @@ function addTexasMask(statesGeoJson) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   BASEMAP CUSTOMIZATION
+   BASEMAP STYLE PRE-PROCESSING
+   Modifies the Stamen terrain style JSON before passing it to
+   MapLibre, so customizations apply reliably on all hosts.
 ═══════════════════════════════════════════════════════════════ */
-function customizeBasemap() {
-  function safeHide(id) {
-    if (map.getLayer(id)) { try { map.setLayoutProperty(id, 'visibility', 'none'); } catch(e) {} }
-  }
-  function safePaint(id, prop, val) {
-    if (map.getLayer(id)) { try { map.setPaintProperty(id, prop, val); } catch(e) {} }
-  }
+const STYLE_URL = 'https://tiles.stadiamaps.com/styles/stamen_terrain.json';
 
-  // Completely remove all land cover / land use fills and their glow lines
-  [
-    'landcover-low', 'landcover', 'nature-reserve',
-    'landuse', 'landuse-urban', 'landuse-greenspace', 'landuse-pitch',
-    'wetland', 'aerodrome', 'aeroway-polygon',
-    'road-pedestrian-polygon-fill', 'road-pedestrian-polygon-pattern',
-  ].forEach(safeHide);
-  [
-    'landcover-low_outer_glow', 'landcover-low_outer_glow_2x',
-    'landcover_outer_glow',     'landcover_outer_glow_2x',
-    'landuse-greenspace-outline', 'landuse-urban-outline', 'wetland_outer_glow',
-  ].forEach(safeHide);
+const HIDDEN_LAYER_IDS = new Set([
+  'landcover-low','landcover','nature-reserve',
+  'landuse','landuse-urban','landuse-greenspace','landuse-pitch',
+  'wetland','aerodrome','aeroway-polygon',
+  'road-pedestrian-polygon-fill','road-pedestrian-polygon-pattern',
+  'landcover-low_outer_glow','landcover-low_outer_glow_2x',
+  'landcover_outer_glow','landcover_outer_glow_2x',
+  'landuse-greenspace-outline','landuse-urban-outline','wetland_outer_glow',
+]);
 
-  // Mute water to warm tone (slightly darker than land)
+function modifyStyle(style) {
   const waterColor = '#BAB5AE';
-  ['water-shadow','water'].forEach(id => safePaint(id, 'fill-color', waterColor));
-  ['waterway-shadow','waterway','waterway_outer_glow'].forEach(id => {
-    safePaint(id, 'line-color', waterColor);
-    safePaint(id, 'line-opacity', 0.55);
-  });
-
-  // Mute minor roads (pale warm gray, low opacity)
   const minorColor = '#C8C2B8';
-  ['road-path','road-steps','road-pedestrian','road-simple-ramp',
-   'tunnel-path','tunnel-steps','tunnel-pedestrian','tunnel-simple-ramp','tunnel-simple',
-   'bridge-path','bridge-steps','bridge-pedestrian','bridge-simple-ramp']
-    .forEach(id => { safePaint(id, 'line-color', minorColor); safePaint(id, 'line-opacity', 0.32); });
-
-  // Road casings
-  ['road-case-simple','road-case-simple-ramp',
-   'tunnel-case-simple','tunnel-case-simple-ramp',
-   'bridge-case-simple','bridge-case-simple-ramp']
-    .forEach(id => safePaint(id, 'line-opacity', 0.28));
-
-  // Major roads — keep visible but slightly muted
-  ['road-simple','bridge-simple'].forEach(id => safePaint(id, 'line-opacity', 0.42));
+  const waterFillIds = new Set(['water-shadow','water']);
+  const waterwayIds  = new Set(['waterway-shadow','waterway','waterway_outer_glow']);
+  const minorRoadIds = new Set(['road-path','road-steps','road-pedestrian','road-simple-ramp',
+    'tunnel-path','tunnel-steps','tunnel-pedestrian','tunnel-simple-ramp','tunnel-simple',
+    'bridge-path','bridge-steps','bridge-pedestrian','bridge-simple-ramp']);
+  const caseRoadIds  = new Set(['road-case-simple','road-case-simple-ramp',
+    'tunnel-case-simple','tunnel-case-simple-ramp','bridge-case-simple','bridge-case-simple-ramp']);
+  const majorRoadIds = new Set(['road-simple','bridge-simple']);
+  style.layers = style.layers
+    .filter(l => !HIDDEN_LAYER_IDS.has(l.id))
+    .map(l => {
+      if (!l.paint) return l;
+      const p = Object.assign({}, l.paint);
+      if (waterFillIds.has(l.id))  { p['fill-color'] = waterColor; }
+      if (waterwayIds.has(l.id))   { p['line-color'] = waterColor; p['line-opacity'] = 0.55; }
+      if (minorRoadIds.has(l.id))  { p['line-color'] = minorColor; p['line-opacity'] = 0.32; }
+      if (caseRoadIds.has(l.id))   { p['line-opacity'] = 0.28; }
+      if (majorRoadIds.has(l.id))  { p['line-opacity'] = 0.42; }
+      return Object.assign({}, l, { paint: p });
+    });
+  return style;
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1564,23 +1558,20 @@ let hoveredFeatureId = null;
 const DATA_PATH   = 'data/output/parish_territories_final.geojson';
 const POINTS_PATH = 'data/raw/parishes_archgh.geojson';
 
-map = new maplibregl.Map({
-  container: 'map',
-  // Warm terrain basemap: hillshade, contours, roads, county lines, buildings at zoom 14+
-  style: 'https://tiles.stadiamaps.com/styles/stamen_terrain.json',
-  center: [-95.37, 29.76],
-  zoom: 9,
-  // Limit extent to contiguous United States
-  maxBounds: [[-135, 22], [-60, 52]],
-  attributionControl: false,
-});
+function initMap(style) {
+  map = new maplibregl.Map({
+    container: 'map',
+    style,
+    center: [-95.37, 29.76],
+    zoom: 9,
+    maxBounds: [[-135, 22], [-60, 52]],
+    attributionControl: false,
+  });
 
-map.addControl(new maplibregl.NavigationControl(), 'bottom-right');
-map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
+  map.addControl(new maplibregl.NavigationControl(), 'bottom-right');
+  map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
 
-map.on('load', () => {
-
-  customizeBasemap();
+  map.on('load', () => {
 
   // Fetch Texas mask from CDN in parallel (non-blocking; gracefully skipped on failure)
   let pendingTxMask = null;
@@ -1659,10 +1650,18 @@ map.on('load', () => {
         }
       });
 
-      // Mark all features as filtered-in by default, then trigger repaint
+      // Mark all features as filtered-in by default
       allFeatures.forEach(f => {
         map.setFeatureState({ source:'parishes', id:f.id }, { filtered:true });
       });
+      // Wait for GeoJSON tiles to actually be ready before repainting
+      const _waitSource = (e) => {
+        if (e.sourceId === 'parishes' && map.isSourceLoaded('parishes')) {
+          map.off('sourcedata', _waitSource);
+          map.triggerRepaint();
+        }
+      };
+      map.on('sourcedata', _waitSource);
       map.triggerRepaint();
 
       buildSearchIndex(geojson.features);
@@ -1845,6 +1844,12 @@ map.on('load', () => {
   });
 
 });
+}
+
+fetch(STYLE_URL)
+  .then(r => r.json())
+  .then(style => initMap(modifyStyle(style)))
+  .catch(() => initMap(STYLE_URL));
 
 /* ═══════════════════════════════════════════════════════════════
    SEARCH
