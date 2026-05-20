@@ -185,6 +185,7 @@
     /* ─── PANEL BODY ──────────────────────────────────────────── */
     #panel-body {
       flex: 1;
+      min-height: 0;
       overflow-y: auto;
       padding: 16px;
       scrollbar-width: thin;
@@ -714,6 +715,8 @@
       box-shadow: 0 -4px 24px rgba(0,0,0,0.12);
       transition: height 0.28s cubic-bezier(0.4, 0, 0.2, 1);
       overflow: hidden;
+      /* Flex column so bs-content can fill remaining height reliably */
+      flex-direction: column;
     }
 
     #bs-handle-area {
@@ -764,7 +767,8 @@
     }
 
     #bs-content {
-      height: calc(100% - 56px);
+      flex: 1;
+      min-height: 0;
       display: flex;
       flex-direction: column;
       overflow: hidden;
@@ -775,7 +779,7 @@
       #sidebar { display: none; }
       #map { height: 100vh; width: 100vw; }
       #mobile-action-bar { display: flex; }
-      #bottom-sheet { display: block; }
+      #bottom-sheet { display: flex; }
 
       /* Legend: move to top-right on mobile */
       #legend {
@@ -844,86 +848,86 @@
     <div id="search-results"></div>
   </div>
 
-  <!-- Panel nav buttons -->
-  <div id="panel-nav">
-    <button class="panel-nav-btn" id="btn-layers" onclick="togglePanel('layers')">
-      <span class="panel-nav-icon">🗂️</span> Layers
-    </button>
-    <button class="panel-nav-btn" id="btn-filters" onclick="togglePanel('filters')">
-      <span class="panel-nav-icon">🎚️</span> Filters
-    </button>
-  </div>
+  <!-- Panels start here (desktop default); initLayout() moves them to #bs-content on mobile -->
+  <div id="sidebar-panels" style="flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;">
 
-  <div id="panel-body">
+    <div id="panel-nav">
+      <button class="panel-nav-btn" id="btn-layers" onclick="togglePanel('layers')">
+        <span class="panel-nav-icon">🗂️</span> Layers
+      </button>
+      <button class="panel-nav-btn" id="btn-filters" onclick="togglePanel('filters')">
+        <span class="panel-nav-icon">🎚️</span> Filters
+      </button>
+    </div>
 
-    <!-- ── PROFILE VIEW (default) ─────────────────────────────── -->
-    <div id="profile-view">
-      <div id="welcome-state">
-        <span class="welcome-icon">⛪</span>
-        <div class="welcome-heading">146 parishes across 10 counties</div>
-        <div class="welcome-body">
-          Each parish territory is colored by its overall ministry need index
-          relative to the diocesan average.
+    <div id="panel-body">
+
+      <!-- ── PROFILE VIEW (default) ─────────────────────────────── -->
+      <div id="profile-view">
+        <div id="welcome-state">
+          <span class="welcome-icon">⛪</span>
+          <div class="welcome-heading">146 parishes across 10 counties</div>
+          <div class="welcome-body">
+            Each parish territory is colored by its overall ministry need index
+            relative to the diocesan average.
+          </div>
+          <div class="welcome-stats">
+            <div class="stat-card">
+              <span class="stat-number">146</span>
+              <div class="stat-label">parishes in the Archdiocese</div>
+            </div>
+            <div class="stat-card">
+              <span class="stat-number">1.7M</span>
+              <div class="stat-label">Catholics in the region</div>
+            </div>
+            <div class="stat-card">
+              <span class="stat-number">7</span>
+              <div class="stat-label">ministry segments analyzed</div>
+            </div>
+            <div class="stat-card">
+              <span class="stat-number">10</span>
+              <div class="stat-label">counties covered</div>
+            </div>
+          </div>
+          <div class="welcome-instruction">
+            <strong>Hover</strong> over any parish boundary to preview its profile.
+            <strong>Click</strong> to lock it in place.
+          </div>
         </div>
-        <div class="welcome-stats">
-          <div class="stat-card">
-            <span class="stat-number">146</span>
-            <div class="stat-label">parishes in the Archdiocese</div>
-          </div>
-          <div class="stat-card">
-            <span class="stat-number">1.7M</span>
-            <div class="stat-label">Catholics in the region</div>
-          </div>
-          <div class="stat-card">
-            <span class="stat-number">7</span>
-            <div class="stat-label">ministry segments analyzed</div>
-          </div>
-          <div class="stat-card">
-            <span class="stat-number">10</span>
-            <div class="stat-label">counties covered</div>
-          </div>
-        </div>
-        <div class="welcome-instruction">
-          <strong>Hover</strong> over any parish boundary to preview its profile.
-          <strong>Click</strong> to lock it in place.
+
+        <div id="parish-profile">
+          <div class="parish-name-display" id="profile-name">—</div>
+          <div class="parish-meta" id="profile-meta"></div>
+          <div class="section-label">Ministry segment profile</div>
+          <div class="radar-wrap" id="profile-radar"></div>
+          <div class="section-label">Top 3 segments</div>
+          <div id="profile-top3"></div>
+          <hr class="panel-divider" />
+          <div class="section-label">All segments</div>
+          <div id="profile-all-segs"></div>
         </div>
       </div>
 
-      <div id="parish-profile">
-        <div class="parish-name-display" id="profile-name">—</div>
-        <div class="parish-meta" id="profile-meta"></div>
-
-        <div class="section-label">Ministry segment profile</div>
-        <div class="radar-wrap" id="profile-radar"></div>
-
-        <div class="section-label">Top 3 segments</div>
-        <div id="profile-top3"></div>
-
-        <hr class="panel-divider" />
-
-        <div class="section-label">All segments</div>
-        <div id="profile-all-segs"></div>
+      <!-- ── LAYERS VIEW ────────────────────────────────────────── -->
+      <div id="layers-view">
+        <div class="layers-panel-heading">Map layers</div>
+        <div class="layers-panel-sub">Color the map by a specific ministry segment, or view the overall need index.</div>
+        <div id="layers-list"></div>
       </div>
-    </div>
 
-    <!-- ── LAYERS VIEW ────────────────────────────────────────── -->
-    <div id="layers-view">
-      <div class="layers-panel-heading">Map layers</div>
-      <div class="layers-panel-sub">Color the map by a specific ministry segment, or view the overall need index.</div>
-      <div id="layers-list"></div>
-    </div>
-
-    <!-- ── FILTERS VIEW ───────────────────────────────────────── -->
-    <div id="filters-view">
-      <div class="filters-panel-heading">Filters</div>
-      <div class="filter-note">
-        AND logic across groups — OR within. Drag sliders to highlight parishes
-        matching specific Census criteria. Non-matching parishes fade on the map.
+      <!-- ── FILTERS VIEW ───────────────────────────────────────── -->
+      <div id="filters-view">
+        <div class="filters-panel-heading">Filters</div>
+        <div class="filter-note">
+          AND logic across groups — OR within. Drag sliders to highlight parishes
+          matching specific Census criteria. Non-matching parishes fade on the map.
+        </div>
+        <div id="filters-list"></div>
       </div>
-      <div id="filters-list"></div>
-    </div>
 
-  </div><!-- /panel-body -->
+    </div><!-- /panel-body -->
+
+  </div><!-- /sidebar-panels -->
 
   <div id="sidebar-footer">
     <div class="footer-credit">
@@ -961,9 +965,9 @@
     </div>
   </div>
   <div id="bs-content">
-    <!-- panel-nav and panel-body are moved here on mobile by initMobileLayout() -->
-  </div>
-</div>
+    <!-- panels moved here by initLayout() on mobile -->
+  </div><!-- /bs-content -->
+</div><!-- /bottom-sheet -->
 
 <script>
 /* ═══════════════════════════════════════════════════════════════
@@ -1004,7 +1008,8 @@ const ACS_FILTERS = [
 /* ═══════════════════════════════════════════════════════════════
    MOBILE HELPERS
 ═══════════════════════════════════════════════════════════════ */
-function isMobile() { return window.innerWidth <= 700; }
+const mobileQuery = window.matchMedia('(max-width: 700px)');
+function isMobile() { return mobileQuery.matches; }
 
 /* ═══════════════════════════════════════════════════════════════
    PANEL NAV
@@ -1397,18 +1402,23 @@ function updateBsPeek(props) {
   }, { passive: true });
 })();
 
-// Move panel-nav and panel-body into bottom sheet on mobile
-function initMobileLayout() {
-  if (!isMobile()) return;
-  const bsContent = document.getElementById('bs-content');
-  if (!bsContent) return;
+// Move panel-nav and panel-body to the correct container based on viewport.
+// Idempotent: skips if already in the right place.
+function initLayout() {
+  const mobile = isMobile();
+  const target = mobile
+    ? document.getElementById('bs-content')
+    : document.getElementById('sidebar-panels');
+  if (!target) return;
   const panelNav  = document.getElementById('panel-nav');
   const panelBody = document.getElementById('panel-body');
-  if (panelNav)  bsContent.appendChild(panelNav);
-  if (panelBody) bsContent.appendChild(panelBody);
-  // Give panel-body flex growth within bottom sheet
-  if (panelBody) { panelBody.style.flex = '1'; panelBody.style.minHeight = '0'; }
+  if (panelNav  && panelNav.parentElement  !== target) target.appendChild(panelNav);
+  if (panelBody && panelBody.parentElement !== target) target.appendChild(panelBody);
 }
+
+// Re-run on resize and orientation change (handles DevTools simulation + rotation)
+window.addEventListener('resize', initLayout);
+window.addEventListener('orientationchange', () => setTimeout(initLayout, 100));
 
 /* ═══════════════════════════════════════════════════════════════
    CROSS-IN-CIRCLE ICON (parish point marker)
@@ -1495,6 +1505,55 @@ function addTexasMask(statesGeoJson) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   BASEMAP CUSTOMIZATION
+═══════════════════════════════════════════════════════════════ */
+function customizeBasemap() {
+  function safeHide(id) {
+    if (map.getLayer(id)) { try { map.setLayoutProperty(id, 'visibility', 'none'); } catch(e) {} }
+  }
+  function safePaint(id, prop, val) {
+    if (map.getLayer(id)) { try { map.setPaintProperty(id, prop, val); } catch(e) {} }
+  }
+
+  // Completely remove all land cover / land use fills and their glow lines
+  [
+    'landcover-low', 'landcover', 'nature-reserve',
+    'landuse', 'landuse-urban', 'landuse-greenspace', 'landuse-pitch',
+    'wetland', 'aerodrome', 'aeroway-polygon',
+    'road-pedestrian-polygon-fill', 'road-pedestrian-polygon-pattern',
+  ].forEach(safeHide);
+  [
+    'landcover-low_outer_glow', 'landcover-low_outer_glow_2x',
+    'landcover_outer_glow',     'landcover_outer_glow_2x',
+    'landuse-greenspace-outline', 'landuse-urban-outline', 'wetland_outer_glow',
+  ].forEach(safeHide);
+
+  // Mute water to warm tone (slightly darker than land)
+  const waterColor = '#BAB5AE';
+  ['water-shadow','water'].forEach(id => safePaint(id, 'fill-color', waterColor));
+  ['waterway-shadow','waterway','waterway_outer_glow'].forEach(id => {
+    safePaint(id, 'line-color', waterColor);
+    safePaint(id, 'line-opacity', 0.55);
+  });
+
+  // Mute minor roads (pale warm gray, low opacity)
+  const minorColor = '#C8C2B8';
+  ['road-path','road-steps','road-pedestrian','road-simple-ramp',
+   'tunnel-path','tunnel-steps','tunnel-pedestrian','tunnel-simple-ramp','tunnel-simple',
+   'bridge-path','bridge-steps','bridge-pedestrian','bridge-simple-ramp']
+    .forEach(id => { safePaint(id, 'line-color', minorColor); safePaint(id, 'line-opacity', 0.32); });
+
+  // Road casings
+  ['road-case-simple','road-case-simple-ramp',
+   'tunnel-case-simple','tunnel-case-simple-ramp',
+   'bridge-case-simple','bridge-case-simple-ramp']
+    .forEach(id => safePaint(id, 'line-opacity', 0.28));
+
+  // Major roads — keep visible but slightly muted
+  ['road-simple','bridge-simple'].forEach(id => safePaint(id, 'line-opacity', 0.42));
+}
+
+/* ═══════════════════════════════════════════════════════════════
    MAP INIT
 ═══════════════════════════════════════════════════════════════ */
 let map;
@@ -1520,6 +1579,8 @@ map.addControl(new maplibregl.NavigationControl(), 'bottom-right');
 map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
 
 map.on('load', () => {
+
+  customizeBasemap();
 
   // Fetch Texas mask from CDN in parallel (non-blocking; gracefully skipped on failure)
   let pendingTxMask = null;
@@ -1587,7 +1648,7 @@ map.on('load', () => {
             'case',
             ['boolean', ['feature-state','hovered'], false], 2.5,
             ['boolean', ['feature-state','locked'],  false], 2.5,
-            0.6
+            1.5
           ],
           'line-opacity': [
             'case',
@@ -1878,7 +1939,7 @@ document.getElementById('welcome-overlay').addEventListener('click', e => {
 ═══════════════════════════════════════════════════════════════ */
 renderLayers();
 renderFilters();
-initMobileLayout();
+initLayout();
 
 </script>
 </body>
