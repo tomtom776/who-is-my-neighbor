@@ -1,0 +1,1443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Who Is My Neighbor? — Houston Parish Ministry Analysis</title>
+  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+  <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+
+  <style>
+    /* ─── TOKENS ─────────────────────────────────────────────── */
+    :root {
+      --cream:        #F7F3EE;
+      --cream-light:  #FDFAF6;
+      --border:       #DDD8D0;
+      --border-light: #EDE8E1;
+      --accent-green: #5A7A5C;
+      --accent-gold:  #9A7B3A;
+      --text-primary: #2C2A26;
+      --text-sec:     #6B6560;
+      --text-ter:     #9C9590;
+      --sidebar-w:    340px;
+
+      --s1: #4A7FA5;
+      --s2: #5A7A5C;
+      --s3: #A0522D;
+      --s4: #B85450;
+      --s5: #6B5B8A;
+      --s6: #7A7468;
+      --s7: #8A6A2A;
+    }
+
+    /* ─── RESET ───────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--cream);
+      color: var(--text-primary);
+      height: 100vh;
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* ─── SIDEBAR ─────────────────────────────────────────────── */
+    #sidebar {
+      width: var(--sidebar-w);
+      min-width: var(--sidebar-w);
+      height: 100vh;
+      background: var(--cream-light);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      z-index: 10;
+    }
+
+    #sidebar-header {
+      padding: 20px 20px 16px;
+      border-bottom: 1px solid var(--border-light);
+      flex-shrink: 0;
+    }
+
+    .app-eyebrow {
+      font-size: 9px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent-gold);
+      margin-bottom: 4px;
+    }
+
+    .app-title {
+      font-family: 'EB Garamond', Georgia, serif;
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--text-primary);
+      line-height: 1.2;
+      margin-bottom: 3px;
+    }
+
+    .app-verse {
+      font-family: 'EB Garamond', Georgia, serif;
+      font-style: italic;
+      font-size: 12px;
+      color: var(--text-ter);
+    }
+
+    /* ─── SEARCH ──────────────────────────────────────────────── */
+    #search-wrap {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-light);
+      flex-shrink: 0;
+      position: relative;
+    }
+
+    #search-input {
+      width: 100%;
+      padding: 8px 12px 8px 32px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--cream);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 12px;
+      color: var(--text-primary);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    #search-input::placeholder { color: var(--text-ter); }
+    #search-input:focus { border-color: var(--accent-green); }
+
+    #search-icon {
+      position: absolute;
+      left: 28px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-ter);
+      font-size: 13px;
+      pointer-events: none;
+    }
+
+    #search-results {
+      position: absolute;
+      top: 100%;
+      left: 16px;
+      right: 16px;
+      background: var(--cream-light);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      z-index: 100;
+      max-height: 200px;
+      overflow-y: auto;
+      display: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+    .search-result-item {
+      padding: 9px 12px;
+      font-size: 12px;
+      color: var(--text-primary);
+      cursor: pointer;
+      border-bottom: 1px solid var(--border-light);
+    }
+    .search-result-item:last-child { border-bottom: none; }
+    .search-result-item:hover { background: var(--cream); }
+
+    /* ─── PANEL NAV ───────────────────────────────────────────── */
+    #panel-nav {
+      display: flex;
+      gap: 8px;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border-light);
+      flex-shrink: 0;
+    }
+
+    .panel-nav-btn {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 7px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--cream);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-sec);
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .panel-nav-btn:hover {
+      border-color: var(--accent-green);
+      color: var(--accent-green);
+    }
+    .panel-nav-btn.active {
+      background: var(--accent-green);
+      border-color: var(--accent-green);
+      color: #fff;
+    }
+    .panel-nav-icon { font-size: 13px; }
+
+    /* ─── PANEL BODY ──────────────────────────────────────────── */
+    #panel-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+    #panel-body::-webkit-scrollbar { width: 4px; }
+    #panel-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    /* ─── WELCOME STATE ───────────────────────────────────────── */
+    #welcome-state {
+      text-align: center;
+      padding: 8px 4px;
+    }
+    .welcome-icon {
+      font-size: 32px;
+      margin-bottom: 12px;
+      display: block;
+    }
+    .welcome-heading {
+      font-family: 'EB Garamond', Georgia, serif;
+      font-size: 16px;
+      font-weight: 500;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+    }
+    .welcome-body {
+      font-size: 12px;
+      color: var(--text-sec);
+      line-height: 1.6;
+      margin-bottom: 16px;
+    }
+    .welcome-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .stat-card {
+      background: var(--cream);
+      border: 1px solid var(--border-light);
+      border-radius: 8px;
+      padding: 10px 8px;
+      text-align: center;
+    }
+    .stat-number {
+      font-family: 'EB Garamond', Georgia, serif;
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--accent-green);
+      display: block;
+    }
+    .stat-label {
+      font-size: 10px;
+      color: var(--text-ter);
+      line-height: 1.3;
+      margin-top: 2px;
+    }
+    .welcome-instruction {
+      font-size: 11px;
+      color: var(--text-ter);
+      line-height: 1.5;
+      padding: 10px 12px;
+      background: var(--cream);
+      border-radius: 6px;
+      border: 1px solid var(--border-light);
+    }
+    .welcome-instruction strong {
+      color: var(--accent-green);
+      font-weight: 500;
+    }
+
+    /* ─── PARISH PROFILE ──────────────────────────────────────── */
+    #parish-profile { display: none; }
+
+    .parish-name-display {
+      font-family: 'EB Garamond', Georgia, serif;
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 2px;
+      line-height: 1.2;
+    }
+    .parish-meta {
+      font-size: 11px;
+      color: var(--text-ter);
+      margin-bottom: 14px;
+    }
+
+    .section-label {
+      font-size: 9px;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-ter);
+      margin-bottom: 10px;
+    }
+
+    .radar-wrap {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 14px;
+    }
+
+    .top3-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .top3-rank {
+      font-size: 10px;
+      color: var(--text-ter);
+      width: 12px;
+      flex-shrink: 0;
+      font-family: 'EB Garamond', serif;
+    }
+    .top3-name {
+      font-size: 12px;
+      color: var(--text-primary);
+      flex: 1;
+      line-height: 1.3;
+    }
+    .lq-badge {
+      font-size: 9px;
+      padding: 2px 7px;
+      border-radius: 20px;
+      white-space: nowrap;
+      flex-shrink: 0;
+      font-weight: 500;
+    }
+
+    .seg-row {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin-bottom: 7px;
+    }
+    .seg-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .seg-name-small {
+      font-size: 11px;
+      color: var(--text-sec);
+      flex: 1;
+      line-height: 1.3;
+    }
+    .seg-bar-bg {
+      width: 60px;
+      height: 3px;
+      background: var(--border);
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+    .seg-bar-fill {
+      height: 3px;
+      border-radius: 2px;
+      transition: width 0.4s ease;
+    }
+    .seg-lq-val {
+      font-size: 10px;
+      color: var(--text-ter);
+      min-width: 28px;
+      text-align: right;
+    }
+
+    .panel-divider {
+      border: none;
+      border-top: 1px solid var(--border-light);
+      margin: 14px 0;
+    }
+
+    /* ─── LAYERS PANEL ────────────────────────────────────────── */
+    #layers-view { display: none; }
+
+    .layers-panel-heading {
+      font-family: 'EB Garamond', Georgia, serif;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+    .layers-panel-sub {
+      font-size: 11px;
+      color: var(--text-ter);
+      margin-bottom: 14px;
+      line-height: 1.5;
+    }
+
+    .layer-item {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 9px 0;
+      border-bottom: 1px solid var(--border-light);
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .layer-item:last-child { border-bottom: none; }
+    .layer-item:hover { opacity: 0.8; }
+    .layer-swatch {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+    .layer-info { flex: 1; }
+    .layer-name-text {
+      font-size: 11px;
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+    .layer-desc-text {
+      font-size: 10px;
+      color: var(--text-ter);
+      margin-top: 1px;
+    }
+    .layer-radio {
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      border: 1.5px solid var(--border);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: border-color 0.15s;
+    }
+    .layer-radio.active { border-color: var(--accent-green); }
+    .layer-radio.active::after {
+      content: '';
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--accent-green);
+    }
+
+    /* ─── FILTERS PANEL ───────────────────────────────────────── */
+    #filters-view { display: none; }
+
+    .filters-panel-heading {
+      font-family: 'EB Garamond', Georgia, serif;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+    .filter-note {
+      font-size: 10px;
+      color: var(--text-ter);
+      line-height: 1.6;
+      margin-bottom: 14px;
+    }
+    .filter-group { margin-bottom: 16px; }
+    .filter-group-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .filter-seg-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .acs-slider-row { margin-bottom: 10px; }
+    .acs-row-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+    .acs-var-name { font-size: 10px; color: var(--text-sec); }
+    .acs-range-val { font-size: 10px; color: var(--text-ter); }
+    .range-wrap {
+      position: relative;
+      height: 18px;
+      display: flex;
+      align-items: center;
+    }
+    .range-track {
+      position: absolute;
+      left: 0; right: 0;
+      height: 3px;
+      background: var(--border);
+      border-radius: 2px;
+    }
+    .range-fill {
+      position: absolute;
+      height: 3px;
+      border-radius: 2px;
+      opacity: 0.5;
+    }
+    input[type=range].dual {
+      position: absolute;
+      width: 100%;
+      appearance: none;
+      background: transparent;
+      pointer-events: none;
+      height: 3px;
+    }
+    input[type=range].dual::-webkit-slider-thumb {
+      appearance: none;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: var(--cream-light);
+      border: 1.5px solid var(--accent-green);
+      pointer-events: all;
+      cursor: pointer;
+      transition: transform 0.1s;
+    }
+    input[type=range].dual::-webkit-slider-thumb:hover { transform: scale(1.2); }
+    input[type=range].dual::-moz-range-thumb {
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: var(--cream-light);
+      border: 1.5px solid var(--accent-green);
+      pointer-events: all;
+      cursor: pointer;
+    }
+
+    /* ─── SIDEBAR FOOTER ──────────────────────────────────────── */
+    #sidebar-footer {
+      padding: 10px 16px;
+      border-top: 1px solid var(--border-light);
+      flex-shrink: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .footer-credit { font-size: 10px; color: var(--text-ter); }
+    .footer-credit a { color: var(--accent-gold); text-decoration: none; }
+    .footer-credit a:hover { text-decoration: underline; }
+
+    /* ─── MAP ─────────────────────────────────────────────────── */
+    #map { flex: 1; height: 100vh; }
+
+    /* ─── WELCOME OVERLAY ─────────────────────────────────────── */
+    #welcome-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(44, 42, 38, 0.55);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(2px);
+      animation: fadeIn 0.4s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    #welcome-card {
+      background: var(--cream-light);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 36px 40px;
+      max-width: 460px;
+      width: calc(100% - 40px);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+      animation: slideUp 0.4s ease;
+    }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .overlay-eyebrow {
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent-gold);
+      font-weight: 500;
+      margin-bottom: 8px;
+    }
+    .overlay-title {
+      font-family: 'EB Garamond', Georgia, serif;
+      font-size: 30px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+      line-height: 1.15;
+    }
+    .overlay-verse {
+      font-family: 'EB Garamond', Georgia, serif;
+      font-style: italic;
+      font-size: 13px;
+      color: var(--text-ter);
+      margin-bottom: 20px;
+    }
+    .overlay-body {
+      font-size: 13px;
+      color: var(--text-sec);
+      line-height: 1.65;
+      margin-bottom: 24px;
+    }
+    .overlay-instructions {
+      background: var(--cream);
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin-bottom: 24px;
+      border: 1px solid var(--border-light);
+    }
+    .overlay-instruction-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 8px;
+      align-items: flex-start;
+      font-size: 12px;
+      color: var(--text-sec);
+      line-height: 1.4;
+    }
+    .overlay-instruction-row:last-child { margin-bottom: 0; }
+    .instruction-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+    .overlay-btn {
+      width: 100%;
+      padding: 12px;
+      background: var(--accent-green);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s;
+      letter-spacing: 0.02em;
+    }
+    .overlay-btn:hover { background: #4a6b4c; }
+
+    /* ─── MAP TOOLTIP ─────────────────────────────────────────── */
+    #map-tooltip {
+      position: fixed;
+      background: var(--cream-light);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 11px;
+      color: var(--text-primary);
+      pointer-events: none;
+      display: none;
+      z-index: 500;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      max-width: 200px;
+    }
+
+    /* ─── LEGEND ──────────────────────────────────────────────── */
+    #legend {
+      position: absolute;
+      bottom: 28px;
+      right: 16px;
+      background: var(--cream-light);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      z-index: 10;
+      min-width: 140px;
+    }
+    .legend-title { font-size: 10px; color: var(--text-sec); margin-bottom: 6px; font-weight: 500; }
+    .legend-bar { height: 7px; width: 116px; border-radius: 3px; }
+    .legend-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 9px;
+      color: var(--text-ter);
+      margin-top: 3px;
+      width: 116px;
+    }
+
+    /* ─── MOBILE ──────────────────────────────────────────────── */
+    @media (max-width: 700px) {
+      #sidebar { display: none; }
+      #map { height: 100vh; width: 100vw; }
+    }
+
+    .maplibregl-ctrl-bottom-right { right: 160px !important; }
+  </style>
+</head>
+<body>
+
+<!-- ── WELCOME OVERLAY ───────────────────────────────────────── -->
+<div id="welcome-overlay">
+  <div id="welcome-card">
+    <div class="overlay-eyebrow">Houston Parish Ministry Analysis</div>
+    <div class="overlay-title">Who Is My Neighbor?</div>
+    <div class="overlay-verse">Luke 10:29</div>
+    <div class="overlay-body">
+      This map explores the demographic landscape of each Catholic parish territory
+      in the Archdiocese of Galveston-Houston — helping identify which kinds of
+      ministry are most needed, and where.
+    </div>
+    <div class="overlay-instructions">
+      <div class="overlay-instruction-row">
+        <span class="instruction-icon">👆</span>
+        <span><strong>Hover</strong> over any parish boundary to preview its ministry profile</span>
+      </div>
+      <div class="overlay-instruction-row">
+        <span class="instruction-icon">📌</span>
+        <span><strong>Click</strong> a parish to lock its profile in the left panel</span>
+      </div>
+      <div class="overlay-instruction-row">
+        <span class="instruction-icon">🗂️</span>
+        <span>Use <strong>Layers</strong> to color the map by a specific ministry segment</span>
+      </div>
+      <div class="overlay-instruction-row">
+        <span class="instruction-icon">🎚️</span>
+        <span>Use <strong>Filters</strong> to highlight parishes matching specific Census criteria</span>
+      </div>
+    </div>
+    <button class="overlay-btn" onclick="dismissOverlay()">Explore the map</button>
+  </div>
+</div>
+
+<!-- ── SIDEBAR ───────────────────────────────────────────────── -->
+<div id="sidebar">
+
+  <div id="sidebar-header">
+    <div class="app-eyebrow">Archdiocese of Galveston-Houston</div>
+    <div class="app-title">Who Is My Neighbor?</div>
+    <div class="app-verse">Luke 10:29</div>
+  </div>
+
+  <div id="search-wrap">
+    <span id="search-icon">🔍</span>
+    <input type="text" id="search-input" placeholder="Search parishes…" autocomplete="off" />
+    <div id="search-results"></div>
+  </div>
+
+  <!-- Panel nav buttons -->
+  <div id="panel-nav">
+    <button class="panel-nav-btn" id="btn-layers" onclick="togglePanel('layers')">
+      <span class="panel-nav-icon">🗂️</span> Layers
+    </button>
+    <button class="panel-nav-btn" id="btn-filters" onclick="togglePanel('filters')">
+      <span class="panel-nav-icon">🎚️</span> Filters
+    </button>
+  </div>
+
+  <div id="panel-body">
+
+    <!-- ── PROFILE VIEW (default) ─────────────────────────────── -->
+    <div id="profile-view">
+      <div id="welcome-state">
+        <span class="welcome-icon">⛪</span>
+        <div class="welcome-heading">146 parishes across 10 counties</div>
+        <div class="welcome-body">
+          Each parish territory is colored by its overall ministry need index
+          relative to the diocesan average.
+        </div>
+        <div class="welcome-stats">
+          <div class="stat-card">
+            <span class="stat-number">146</span>
+            <div class="stat-label">parishes in the Archdiocese</div>
+          </div>
+          <div class="stat-card">
+            <span class="stat-number">1.7M</span>
+            <div class="stat-label">Catholics in the region</div>
+          </div>
+          <div class="stat-card">
+            <span class="stat-number">7</span>
+            <div class="stat-label">ministry segments analyzed</div>
+          </div>
+          <div class="stat-card">
+            <span class="stat-number">10</span>
+            <div class="stat-label">counties covered</div>
+          </div>
+        </div>
+        <div class="welcome-instruction">
+          <strong>Hover</strong> over any parish boundary to preview its profile.
+          <strong>Click</strong> to lock it in place.
+        </div>
+      </div>
+
+      <div id="parish-profile">
+        <div class="parish-name-display" id="profile-name">—</div>
+        <div class="parish-meta" id="profile-meta"></div>
+
+        <div class="section-label">Ministry segment profile</div>
+        <div class="radar-wrap" id="profile-radar"></div>
+
+        <div class="section-label">Top 3 segments</div>
+        <div id="profile-top3"></div>
+
+        <hr class="panel-divider" />
+
+        <div class="section-label">All segments</div>
+        <div id="profile-all-segs"></div>
+      </div>
+    </div>
+
+    <!-- ── LAYERS VIEW ────────────────────────────────────────── -->
+    <div id="layers-view">
+      <div class="layers-panel-heading">Map layers</div>
+      <div class="layers-panel-sub">Color the map by a specific ministry segment, or view the overall need index.</div>
+      <div id="layers-list"></div>
+    </div>
+
+    <!-- ── FILTERS VIEW ───────────────────────────────────────── -->
+    <div id="filters-view">
+      <div class="filters-panel-heading">Filters</div>
+      <div class="filter-note">
+        AND logic across groups — OR within. Drag sliders to highlight parishes
+        matching specific Census criteria. Non-matching parishes fade on the map.
+      </div>
+      <div id="filters-list"></div>
+    </div>
+
+  </div><!-- /panel-body -->
+
+  <div id="sidebar-footer">
+    <div class="footer-credit">
+      Built by <a href="https://www.thomasrquintero.com" target="_blank">Thomas Quintero</a>
+    </div>
+    <div class="footer-credit" style="color:var(--text-ter)">ACS 5-yr estimates, 2022</div>
+  </div>
+
+</div><!-- /sidebar -->
+
+<!-- ── MAP ────────────────────────────────────────────────────── -->
+<div id="map"></div>
+<div id="map-tooltip"></div>
+<div id="legend">
+  <div class="legend-title" id="legend-title">Overall ministry need</div>
+  <div class="legend-bar" id="legend-bar" style="background:linear-gradient(to right,#f0ebe3,#5A7A5C)"></div>
+  <div class="legend-labels"><span>Low</span><span>High</span></div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   DATA DEFINITIONS
+═══════════════════════════════════════════════════════════════ */
+const SEGMENTS = [
+  { id:'total', name:'Overall ministry need',        color:'#5A7A5C', desc:'Average LQ across all 7 segments',       lqField:'lq_total' },
+  { id:'s1',    name:'Young unattached adults',      color:'#4A7FA5', desc:'Ages 18-34, single, no children',        lqField:'lq_s1' },
+  { id:'s2',    name:'Young families',               color:'#5A7A5C', desc:'Married w/ children under 12',           lqField:'lq_s2' },
+  { id:'s3',    name:'Hispanic / immigrant',         color:'#A0522D', desc:'Spanish-speaking, foreign-born',         lqField:'lq_s3' },
+  { id:'s4',    name:'Economically vulnerable',      color:'#B85450', desc:'Below 200% poverty, uninsured',          lqField:'lq_s4' },
+  { id:'s5',    name:'Established older families',   color:'#6B5B8A', desc:'Ages 45-64, homeowners',                 lqField:'lq_s5' },
+  { id:'s6',    name:'Senior adults',                color:'#7A7468', desc:'Ages 65+, disability, isolation',        lqField:'lq_s6' },
+  { id:'s7',    name:'Educated young professionals', color:'#8A6A2A', desc:'Degree holders, renters, no kids yet',   lqField:'lq_s7' },
+];
+
+const ACS_FILTERS = [
+  { seg:'s1', color:'#4A7FA5', label:'Young unattached adults', vars:[
+    { name:'% ages 18-34',               field:'pct_age_18_34',       min:0,  max:60,  lo:0,  hi:60,  unit:'%' },
+    { name:'% single-person households', field:'pct_single_hh',       min:0,  max:80,  lo:0,  hi:80,  unit:'%' },
+  ]},
+  { seg:'s3', color:'#A0522D', label:'Hispanic / immigrant', vars:[
+    { name:'% Hispanic or Latino',       field:'pct_hispanic',        min:0,  max:100, lo:0,  hi:100, unit:'%' },
+    { name:'% foreign-born',             field:'pct_foreign_born',    min:0,  max:80,  lo:0,  hi:80,  unit:'%' },
+    { name:'% Spanish-speaking at home', field:'pct_spanish',         min:0,  max:90,  lo:0,  hi:90,  unit:'%' },
+  ]},
+  { seg:'s4', color:'#B85450', label:'Economically vulnerable', vars:[
+    { name:'% below 200% poverty line',  field:'pct_below_poverty',   min:0,  max:80,  lo:0,  hi:80,  unit:'%' },
+    { name:'% uninsured',                field:'pct_uninsured',       min:0,  max:50,  lo:0,  hi:50,  unit:'%' },
+    { name:'Median household income',    field:'median_hh_income_wtd',min:20, max:150, lo:20, hi:150, unit:'k' },
+  ]},
+  { seg:'s6', color:'#7A7468', label:'Senior adults', vars:[
+    { name:'% age 65 or older',          field:'pct_age_65_plus',     min:0,  max:50,  lo:0,  hi:50,  unit:'%' },
+    { name:'% with a disability',        field:'pct_disability',      min:0,  max:40,  lo:0,  hi:40,  unit:'%' },
+  ]},
+];
+
+/* ═══════════════════════════════════════════════════════════════
+   PANEL NAV
+═══════════════════════════════════════════════════════════════ */
+let activePanel = 'profile';
+
+function togglePanel(name) {
+  if (activePanel === name) {
+    // Clicking the active panel button closes it and returns to profile
+    activePanel = 'profile';
+  } else {
+    activePanel = name;
+  }
+
+  document.getElementById('profile-view').style.display  = activePanel === 'profile'  ? 'block' : 'none';
+  document.getElementById('layers-view').style.display   = activePanel === 'layers'   ? 'block' : 'none';
+  document.getElementById('filters-view').style.display  = activePanel === 'filters'  ? 'block' : 'none';
+
+  document.getElementById('btn-layers').classList.toggle('active',  activePanel === 'layers');
+  document.getElementById('btn-filters').classList.toggle('active', activePanel === 'filters');
+
+  // Scroll panel body to top when switching views
+  document.getElementById('panel-body').scrollTop = 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   BADGE HELPER
+═══════════════════════════════════════════════════════════════ */
+function badge(lq) {
+  if (lq > 1.5)   return { text:'Way above average', bg:'#EAF2E8', color:'#2D5E30' };
+  if (lq > 1.2)   return { text:'Above average',     bg:'#EEF3E2', color:'#3A5A16' };
+  if (lq >= 0.85) return { text:'Near average',      bg:'#F3EFE8', color:'#5A5040' };
+  if (lq >= 0.6)  return { text:'Below average',     bg:'#F5EDDE', color:'#6B4A18' };
+  return                  { text:'Hardly present',   bg:'#F5E8E6', color:'#7A2E2A' };
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RADAR CHART
+═══════════════════════════════════════════════════════════════ */
+function drawRadar(props, size = 180) {
+  // Only draw the 7 named segments (skip 'total')
+  const segs = SEGMENTS.filter(s => s.id !== 'total');
+  const W = size, H = size, cx = W/2, cy = H/2, R = size * 0.34;
+  const N = segs.length;
+  const angles = segs.map((_,i) => (i/N)*2*Math.PI - Math.PI/2);
+  const svg = d3.create('svg').attr('width',W).attr('height',H);
+
+  [0.25, 0.5, 0.75, 1].forEach(f => {
+    svg.append('polygon')
+      .attr('points', angles.map(a => [cx+Math.cos(a)*R*f, cy+Math.sin(a)*R*f].join(',')).join(' '))
+      .attr('fill','none').attr('stroke','#DDD8D0').attr('stroke-width',0.75);
+  });
+  angles.forEach(a => {
+    svg.append('line')
+      .attr('x1',cx).attr('y1',cy)
+      .attr('x2',cx+Math.cos(a)*R).attr('y2',cy+Math.sin(a)*R)
+      .attr('stroke','#DDD8D0').attr('stroke-width',0.75);
+  });
+
+  const pts = segs.map((s,i) => {
+    const lq = props ? (parseFloat(props[s.lqField]) || 0) : 0;
+    const f = Math.min(lq / 2.5, 1);
+    return [cx + Math.cos(angles[i])*R*f, cy + Math.sin(angles[i])*R*f];
+  });
+
+  svg.append('polygon')
+    .attr('points', pts.map(p=>p.join(',')).join(' '))
+    .attr('fill','#5A7A5C').attr('fill-opacity',0.15)
+    .attr('stroke','#5A7A5C').attr('stroke-width',1.5);
+
+  pts.forEach((p,i) => {
+    svg.append('circle').attr('cx',p[0]).attr('cy',p[1]).attr('r',3)
+      .attr('fill', segs[i].color);
+  });
+
+  segs.forEach((s,i) => {
+    const lx = cx + Math.cos(angles[i])*(R+16);
+    const ly = cy + Math.sin(angles[i])*(R+16);
+    const abbr = s.name.split(' ').map(w=>w[0]).join('').slice(0,3);
+    svg.append('text').attr('x',lx).attr('y',ly)
+      .attr('text-anchor','middle').attr('dominant-baseline','central')
+      .attr('font-size', 8).attr('fill','#9C9590')
+      .attr('font-family','DM Sans, sans-serif').text(abbr);
+  });
+
+  return svg.node();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RENDER PARISH PROFILE
+═══════════════════════════════════════════════════════════════ */
+function renderProfile(props) {
+  document.getElementById('welcome-state').style.display = 'none';
+  document.getElementById('parish-profile').style.display = 'block';
+
+  document.getElementById('profile-name').textContent = props.parish_name || 'Unknown Parish';
+  document.getElementById('profile-meta').textContent =
+    props.total_pop ? `Est. population: ${parseInt(props.total_pop).toLocaleString()}` : '';
+
+  const radarWrap = document.getElementById('profile-radar');
+  radarWrap.innerHTML = '';
+  radarWrap.appendChild(drawRadar(props));
+
+  const segs = SEGMENTS.filter(s => s.id !== 'total');
+  const sorted = [...segs].map(s => ({
+    ...s, lq: parseFloat(props[s.lqField]) || 0
+  })).sort((a,b) => b.lq - a.lq);
+
+  const top3El = document.getElementById('profile-top3');
+  top3El.innerHTML = '';
+  sorted.slice(0,3).forEach((s,i) => {
+    const b = badge(s.lq);
+    const row = document.createElement('div');
+    row.className = 'top3-item';
+    row.innerHTML = `
+      <span class="top3-rank">${i+1}</span>
+      <span class="top3-name">${s.name}</span>
+      <span class="lq-badge" style="background:${b.bg};color:${b.color}">${b.text}</span>
+    `;
+    top3El.appendChild(row);
+  });
+
+  const allEl = document.getElementById('profile-all-segs');
+  allEl.innerHTML = '';
+  sorted.forEach(s => {
+    const w = Math.min(100, Math.round(s.lq / 2.5 * 100));
+    const row = document.createElement('div');
+    row.className = 'seg-row';
+    row.innerHTML = `
+      <div class="seg-dot" style="background:${s.color}"></div>
+      <span class="seg-name-small">${s.name}</span>
+      <div class="seg-bar-bg">
+        <div class="seg-bar-fill" style="background:${s.color};width:${w}%"></div>
+      </div>
+      <span class="seg-lq-val">${s.lq.toFixed(2)}</span>
+    `;
+    allEl.appendChild(row);
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RENDER LAYERS LIST
+═══════════════════════════════════════════════════════════════ */
+let activeLayer = 'total';
+
+function renderLayers() {
+  const el = document.getElementById('layers-list');
+  el.innerHTML = '';
+  SEGMENTS.forEach(s => {
+    const isActive = s.id === activeLayer;
+    const item = document.createElement('div');
+    item.className = 'layer-item';
+    item.innerHTML = `
+      <div class="layer-swatch" style="background:${s.color}"></div>
+      <div class="layer-info">
+        <div class="layer-name-text">${s.name}</div>
+        <div class="layer-desc-text">${s.desc}</div>
+      </div>
+      <div class="layer-radio ${isActive?'active':''}"></div>
+    `;
+    item.addEventListener('click', () => {
+      activeLayer = s.id;
+      renderLayers();
+      updateMapLayer();
+      document.getElementById('legend-title').textContent = s.name;
+      document.getElementById('legend-bar').style.background =
+        `linear-gradient(to right,#f0ebe3,${s.color})`;
+    });
+    el.appendChild(item);
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RENDER FILTERS
+═══════════════════════════════════════════════════════════════ */
+function renderFilters() {
+  const el = document.getElementById('filters-list');
+  el.innerHTML = '';
+
+  ACS_FILTERS.forEach(grp => {
+    const grpEl = document.createElement('div');
+    grpEl.className = 'filter-group';
+    let html = `
+      <div class="filter-group-label">
+        <div class="filter-seg-dot" style="background:${grp.color}"></div>
+        ${grp.label}
+      </div>
+    `;
+    grp.vars.forEach((v,vi) => {
+      const id = `f-${grp.seg}-${vi}`;
+      const loD = v.unit==='k' ? `$${v.lo}k` : `${v.lo}%`;
+      const hiD = v.unit==='k' ? `$${v.hi}k` : `${v.hi}%`;
+      html += `
+        <div class="acs-slider-row">
+          <div class="acs-row-header">
+            <span class="acs-var-name">${v.name}</span>
+            <span class="acs-range-val" id="val-${id}">${loD} – ${hiD}</span>
+          </div>
+          <div class="range-wrap" style="padding:0 2px">
+            <div class="range-track"></div>
+            <div class="range-fill" id="fill-${id}"
+              style="background:${grp.color};left:0%;right:0%"></div>
+            <input type="range" class="dual" min="${v.min}" max="${v.max}"
+              value="${v.lo}" step="1"
+              oninput="updateSlider('${id}',this,'lo',${v.min},${v.max},'${v.unit}',${vi},'${grp.seg}')">
+            <input type="range" class="dual" min="${v.min}" max="${v.max}"
+              value="${v.hi}" step="1"
+              oninput="updateSlider('${id}',this,'hi',${v.min},${v.max},'${v.unit}',${vi},'${grp.seg}')">
+          </div>
+        </div>`;
+    });
+    grpEl.innerHTML = html;
+    el.appendChild(grpEl);
+
+    const div = document.createElement('hr');
+    div.className = 'panel-divider';
+    div.style.margin = '10px 0';
+    el.appendChild(div);
+  });
+}
+
+function updateSlider(id, el, which, min, max, unit, vi, segId) {
+  const grp = ACS_FILTERS.find(g => g.seg === segId);
+  const v = grp.vars[vi];
+  const val = parseInt(el.value);
+  if (which === 'lo') v.lo = Math.min(val, v.hi - 1);
+  else v.hi = Math.max(val, v.lo + 1);
+  el.value = which === 'lo' ? v.lo : v.hi;
+
+  const loD = unit==='k' ? `$${v.lo}k` : `${v.lo}%`;
+  const hiD = unit==='k' ? `$${v.hi}k` : `${v.hi}%`;
+  document.getElementById('val-'+id).textContent = `${loD} – ${hiD}`;
+
+  const loPct = ((v.lo-min)/(max-min)*100).toFixed(1);
+  const hiPct = (100 - (v.hi-min)/(max-min)*100).toFixed(1);
+  const fill = document.getElementById('fill-'+id);
+  fill.style.left  = loPct + '%';
+  fill.style.right = hiPct + '%';
+
+  applyFilters();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   FILTER LOGIC
+═══════════════════════════════════════════════════════════════ */
+function featureMatchesFilters(props) {
+  for (const grp of ACS_FILTERS) {
+    // Only sliders that have been moved from their default count
+    const activeVars = grp.vars.filter(v => v.lo > v.min || v.hi < v.max);
+    if (activeVars.length === 0) continue;
+
+    // OR within group: parish must match at least one active slider
+    const groupMatch = activeVars.some(v => {
+      const rawVal = parseFloat(props[v.field]);
+      if (isNaN(rawVal)) return false;
+      const displayVal = v.unit === 'k' ? rawVal / 1000 : rawVal * 100;
+      return displayVal >= v.lo && displayVal <= v.hi;
+    });
+    if (!groupMatch) return false;
+  }
+  return true;
+}
+
+function applyFilters() {
+  if (!map || !map.getLayer('parishes-fill')) return;
+  if (!map.getSource('parishes')) return;
+  if (allFeatures.length === 0) return;
+
+  allFeatures.forEach(f => {
+    map.setFeatureState(
+      { source: 'parishes', id: f.id },
+      { filtered: featureMatchesFilters(f.properties) }
+    );
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MAP LAYER UPDATE
+═══════════════════════════════════════════════════════════════ */
+function updateMapLayer() {
+  if (!map || !map.getLayer('parishes-fill')) return;
+  const seg = SEGMENTS.find(s => s.id === activeLayer);
+  if (!seg) return;
+
+  map.setPaintProperty('parishes-fill', 'fill-color', [
+    'interpolate', ['linear'],
+    ['coalesce', ['get', seg.lqField], 0],
+    0,   '#F0EBE3',
+    0.85,'#C8B99A',
+    1.2, seg.color,
+    2.5, seg.color,
+  ]);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MAP INIT
+═══════════════════════════════════════════════════════════════ */
+let map;
+let allFeatures = [];
+let lockedFeatureId = null;
+let hoveredFeatureId = null;
+
+const DATA_PATH = 'data/output/parish_territories_final.geojson';
+
+map = new maplibregl.Map({
+  container: 'map',
+  style: 'https://tiles.stadiamaps.com/styles/alidade_smooth.json',
+  center: [-95.37, 29.76],
+  zoom: 9,
+  attributionControl: false,
+});
+
+map.addControl(new maplibregl.NavigationControl(), 'bottom-right');
+map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
+
+map.on('load', () => {
+
+  fetch(DATA_PATH)
+    .then(r => {
+      if (!r.ok) throw new Error(`Could not load GeoJSON: ${r.status}`);
+      return r.json();
+    })
+    .then(geojson => {
+
+      // Assign IDs and compute lq_total as average of all 7 segment LQs
+      geojson.features.forEach((f, i) => {
+        f.id = i;
+        const p = f.properties;
+        const vals = ['lq_s1','lq_s2','lq_s3','lq_s4','lq_s5','lq_s6','lq_s7']
+          .map(k => parseFloat(p[k]) || 0);
+        p.lq_total = vals.reduce((a, b) => a + b, 0) / vals.length;
+      });
+
+      allFeatures = geojson.features;
+
+      map.addSource('parishes', {
+        type: 'geojson',
+        data: geojson,
+        generateId: false,
+      });
+
+      // Default paint uses lq_total
+      map.addLayer({
+        id: 'parishes-fill',
+        type: 'fill',
+        source: 'parishes',
+        paint: {
+          'fill-color': [
+            'interpolate', ['linear'],
+            ['coalesce', ['get', 'lq_total'], 0],
+            0, '#F0EBE3', 0.85, '#C8B99A', 1.2, '#5A7A5C', 2.5, '#5A7A5C'
+          ],
+          'fill-opacity': [
+            'case',
+            ['==', ['feature-state','filtered'], false], 0.12,
+            0.62
+          ],
+        }
+      });
+
+      map.addLayer({
+        id: 'parishes-outline',
+        type: 'line',
+        source: 'parishes',
+        paint: {
+          'line-color': '#9A7B3A',
+          'line-width': [
+            'case',
+            ['boolean', ['feature-state','hovered'], false], 2.5,
+            ['boolean', ['feature-state','locked'],  false], 2.5,
+            0.6
+          ],
+          'line-opacity': [
+            'case',
+            ['boolean', ['feature-state','hovered'], false], 1,
+            ['boolean', ['feature-state','locked'],  false], 1,
+            0.4
+          ],
+        }
+      });
+
+      map.addLayer({
+        id: 'parishes-labels',
+        type: 'symbol',
+        source: 'parishes',
+        minzoom: 11,
+        layout: {
+          'text-field': ['get','parish_name'],
+          'text-font': ['Open Sans Regular'],
+          'text-size': 10,
+          'text-max-width': 8,
+        },
+        paint: {
+          'text-color': '#2C2A26',
+          'text-halo-color': '#FDFAF6',
+          'text-halo-width': 1.5,
+        }
+      });
+
+      buildSearchIndex(geojson.features);
+
+      allFeatures.forEach(f => {
+        map.setFeatureState({ source:'parishes', id:f.id }, { filtered:true });
+      });
+
+    })
+    .catch(err => {
+      console.error(err);
+      document.getElementById('welcome-state').innerHTML = `
+        <div style="padding:16px;font-size:12px;color:#B85450;line-height:1.7;background:#F5E8E6;border-radius:8px;border:1px solid #e8c4c0">
+          <strong>Could not load parish data.</strong><br><br>
+          Run a local server from the project folder:<br>
+          <code style="font-size:11px;background:#fff;padding:2px 6px;border-radius:3px">python -m http.server 8000</code><br><br>
+          Then open <code style="font-size:11px;background:#fff;padding:2px 6px;border-radius:3px">http://localhost:8000/who_is_my_neighbor.html</code>
+        </div>`;
+    });
+
+  // ── HOVER ────────────────────────────────────────────────────
+  map.on('mousemove', 'parishes-fill', (e) => {
+    map.getCanvas().style.cursor = 'pointer';
+    const f = e.features[0];
+    if (!f) return;
+
+    if (hoveredFeatureId !== null && hoveredFeatureId !== lockedFeatureId) {
+      map.setFeatureState({ source:'parishes', id:hoveredFeatureId }, { hovered:false });
+    }
+    hoveredFeatureId = f.id;
+    map.setFeatureState({ source:'parishes', id:f.id }, { hovered:true });
+
+    if (lockedFeatureId === null) {
+      renderProfile(f.properties);
+      // Show profile view when hovering (don't interrupt layers/filters panels)
+      if (activePanel !== 'layers' && activePanel !== 'filters') {
+        document.getElementById('welcome-state').style.display = 'none';
+        document.getElementById('parish-profile').style.display = 'block';
+      }
+    }
+
+    const tip = document.getElementById('map-tooltip');
+    tip.textContent = f.properties.parish_name || '';
+    tip.style.display = 'block';
+    tip.style.left = (e.originalEvent.clientX + 14) + 'px';
+    tip.style.top  = (e.originalEvent.clientY - 10) + 'px';
+  });
+
+  map.on('mouseleave', 'parishes-fill', () => {
+    map.getCanvas().style.cursor = '';
+    if (hoveredFeatureId !== null && hoveredFeatureId !== lockedFeatureId) {
+      map.setFeatureState({ source:'parishes', id:hoveredFeatureId }, { hovered:false });
+    }
+    hoveredFeatureId = null;
+    document.getElementById('map-tooltip').style.display = 'none';
+
+    if (lockedFeatureId === null && activePanel === 'profile') {
+      document.getElementById('welcome-state').style.display = 'block';
+      document.getElementById('parish-profile').style.display = 'none';
+    }
+  });
+
+  // ── CLICK ────────────────────────────────────────────────────
+  map.on('click', 'parishes-fill', (e) => {
+    const f = e.features[0];
+    if (!f) return;
+
+    // Unlock previous selection and clear any lingering hover outline
+    if (lockedFeatureId !== null) {
+      map.setFeatureState({ source:'parishes', id:lockedFeatureId }, { locked:false, hovered:false });
+    }
+
+    // Always lock the newly clicked parish
+    lockedFeatureId = f.id;
+    map.setFeatureState({ source:'parishes', id:f.id }, { locked:true });
+    renderProfile(f.properties);
+
+    // Switch to profile view to show the parish details
+    if (activePanel !== 'profile') {
+      activePanel = 'profile';
+      document.getElementById('profile-view').style.display  = 'block';
+      document.getElementById('layers-view').style.display   = 'none';
+      document.getElementById('filters-view').style.display  = 'none';
+      document.getElementById('btn-layers').classList.remove('active');
+      document.getElementById('btn-filters').classList.remove('active');
+    }
+  });
+
+  // Click on empty map = unlock
+  map.on('click', (e) => {
+    const features = map.queryRenderedFeatures(e.point, { layers:['parishes-fill'] });
+    if (features.length === 0 && lockedFeatureId !== null) {
+      map.setFeatureState({ source:'parishes', id:lockedFeatureId }, { locked:false });
+      lockedFeatureId = null;
+      if (activePanel === 'profile') {
+        document.getElementById('welcome-state').style.display = 'block';
+        document.getElementById('parish-profile').style.display = 'none';
+      }
+    }
+  });
+
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   SEARCH
+═══════════════════════════════════════════════════════════════ */
+let searchIndex = [];
+
+function buildSearchIndex(features) {
+  searchIndex = features.map(f => ({
+    id: f.id,
+    name: f.properties.parish_name || '',
+    props: f.properties,
+    coords: f.geometry.type === 'Polygon'
+      ? f.geometry.coordinates[0][0]
+      : f.geometry.coordinates[0][0][0],
+  }));
+}
+
+const searchInput  = document.getElementById('search-input');
+const searchResults = document.getElementById('search-results');
+
+searchInput.addEventListener('input', () => {
+  const q = searchInput.value.trim().toLowerCase();
+  if (q.length < 2) { searchResults.style.display = 'none'; return; }
+
+  const matches = searchIndex
+    .filter(p => p.name.toLowerCase().includes(q))
+    .slice(0, 8);
+
+  if (matches.length === 0) { searchResults.style.display = 'none'; return; }
+
+  searchResults.innerHTML = matches.map(p =>
+    `<div class="search-result-item" data-id="${p.id}">${p.name}</div>`
+  ).join('');
+  searchResults.style.display = 'block';
+
+  searchResults.querySelectorAll('.search-result-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const id = parseInt(item.dataset.id);
+      const parish = searchIndex.find(p => p.id === id);
+      if (!parish) return;
+
+      searchInput.value = parish.name;
+      searchResults.style.display = 'none';
+
+      map.flyTo({ center: parish.coords, zoom: 12, duration: 1200 });
+
+      if (lockedFeatureId !== null) {
+        map.setFeatureState({ source:'parishes', id:lockedFeatureId }, { locked:false });
+      }
+      lockedFeatureId = id;
+      map.setFeatureState({ source:'parishes', id }, { locked:true });
+      renderProfile(parish.props);
+
+      // Show profile view
+      activePanel = 'profile';
+      document.getElementById('profile-view').style.display  = 'block';
+      document.getElementById('layers-view').style.display   = 'none';
+      document.getElementById('filters-view').style.display  = 'none';
+      document.getElementById('btn-layers').classList.remove('active');
+      document.getElementById('btn-filters').classList.remove('active');
+    });
+  });
+});
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('#search-wrap')) {
+    searchResults.style.display = 'none';
+  }
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   WELCOME OVERLAY DISMISS
+═══════════════════════════════════════════════════════════════ */
+function dismissOverlay() {
+  const overlay = document.getElementById('welcome-overlay');
+  overlay.style.opacity = '0';
+  overlay.style.transition = 'opacity 0.3s ease';
+  setTimeout(() => overlay.style.display = 'none', 300);
+}
+
+document.getElementById('welcome-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('welcome-overlay')) dismissOverlay();
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════════════════ */
+renderLayers();
+renderFilters();
+
+</script>
+</body>
+</html>

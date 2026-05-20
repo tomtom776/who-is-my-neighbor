@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+
+# Raw and processed data (too large / not needed for web app)
+data/raw/
+data/processed/
+data/output/parish_territories_simplified.geojson
+data/output/parish_territories_final_backup*.geojson
+data/output/parishterritories.pmtiles
+
+# Notebooks
+notebooks/
