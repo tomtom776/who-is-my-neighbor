@@ -116,7 +116,7 @@ data_cols = [c for c in gdf.columns if c != 'geometry']
 parishes_pts = gpd.read_file(PARISHES_PATH).to_crs(CRS_PROJECTED)
 if 'name' in parishes_pts.columns and 'parish_name' not in parishes_pts.columns:
     parishes_pts = parishes_pts.rename(columns={'name': 'parish_name'})
-parish_pt_map = dict(zip(parishes_pts['parish_name'], parishes_pts.geometry))
+parish_pt_map = dict(zip(parishes_pts['parish_id'], parishes_pts.geometry))
 
 # ─── Pass 1: make_valid ───────────────────────────────────────────────────────
 gdf['geometry'] = gdf['geometry'].apply(make_valid)
@@ -143,13 +143,13 @@ parts = gdf.copy().explode(index_parts=False).reset_index(drop=True)
 parts['_area'] = parts.geometry.area
 
 def _main_score(row):
-    pt = parish_pt_map.get(row['parish_name'])
+    pt = parish_pt_map.get(row['parish_id'])
     if pt is not None:
         return row.geometry.distance(pt)
     return -row['_area']
 
 parts['_score']   = parts.apply(_main_score, axis=1)
-main_idx          = parts.groupby('parish_name')['_score'].idxmin()
+main_idx          = parts.groupby('parish_id')['_score'].idxmin()
 parts['_is_main'] = parts.index.isin(main_idx)
 
 isolated = parts[~parts['_is_main']]
@@ -162,7 +162,7 @@ if len(isolated) > 0:
     skipped_large = 0
     for row_idx in isolated.index:
         iso_geom   = parts.loc[row_idx, 'geometry']
-        old_parish = parts.loc[row_idx, 'parish_name']
+        old_id     = parts.loc[row_idx, 'parish_id']
 
         # Keep large parts — they are legitimate rural territories, not artifacts
         if parts.loc[row_idx, '_area'] > MAX_ISOLATED_AREA_M2:
@@ -173,12 +173,12 @@ if len(isolated) > 0:
         for buf in (500, 2_000, 10_000):
             cand_pos = list(sindex.query(iso_geom.buffer(buf)))
             cands    = parts.iloc[cand_pos]
-            cands    = cands[cands['parish_name'] != old_parish]
+            cands    = cands[cands['parish_id'] != old_id]
             if len(cands):
                 break
 
         if len(cands) == 0:
-            print(f"  WARNING: no neighbour found for isolated part of '{old_parish}'.")
+            print(f"  WARNING: no neighbour found for isolated part of parish_id={old_id}.")
             continue
 
         def _shared(row):
@@ -188,16 +188,16 @@ if len(isolated) > 0:
                 return 0.0
 
         shared = cands.apply(_shared, axis=1)
-        best   = cands.loc[shared.idxmax(), 'parish_name']
-        parts.loc[row_idx, 'parish_name'] = best
+        best   = cands.loc[shared.idxmax(), 'parish_id']
+        parts.loc[row_idx, 'parish_id'] = best
         reassigned += 1
 
     print(f"  Reassigned: {reassigned} small parts (<20 km²).")
     print(f"  Kept large: {skipped_large} parts (>=20 km2 -- legitimate rural territories).")
 
 parts_sorted = parts.sort_values('_is_main', ascending=False)
-agg          = {c: 'first' for c in data_cols if c != 'parish_name'}
-gdf          = parts_sorted.dissolve(by='parish_name', aggfunc=agg).reset_index()
+agg          = {c: 'first' for c in data_cols if c != 'parish_id'}
+gdf          = parts_sorted.dissolve(by='parish_id', aggfunc=agg).reset_index()
 gdf['geometry'] = gdf['geometry'].apply(make_valid).apply(extract_polygons)
 print(f"  MultiPolygons after: {(gdf.geometry.geom_type == 'MultiPolygon').sum()}")
 
@@ -217,8 +217,8 @@ n_found = n_resolved = n_skipped_large = 0
 
 for i in range(len(gdf)):
     g_orig_i = orig_geoms[i]
-    name_i   = gdf.iloc[i]['parish_name']
-    pt_i     = parish_pt_map.get(name_i)
+    id_i     = gdf.iloc[i]['parish_id']
+    pt_i     = parish_pt_map.get(id_i)
 
     cand_pos = list(sindex.query(g_orig_i))
     for j in cand_pos:
@@ -241,8 +241,10 @@ for i in range(len(gdf)):
             n_skipped_large += 1
             continue   # too large — do not risk distorting the territory
 
-        name_j = gdf.iloc[j]['parish_name']
-        pt_j   = parish_pt_map.get(name_j)
+        id_j = gdf.iloc[j]['parish_id']
+        pt_j = parish_pt_map.get(id_j)
+        name_i = gdf.iloc[i].get('parish_name', str(id_i))
+        name_j = gdf.iloc[j].get('parish_name', str(id_j))
         centroid = inter.centroid
 
         if pt_i is not None and pt_j is not None:
@@ -319,12 +321,14 @@ print("\nPass 6 (fill holes + make_valid) done.")
 pre  = gpd.read_file('data/processed/parish_territories.geojson').to_crs(CRS_PROJECTED)
 pre['area_orig'] = pre.geometry.area
 gdf['area_new']  = gdf.geometry.area
-check = gdf[['parish_name','area_new']].merge(pre[['parish_name','area_orig']], on='parish_name')
+check = gdf[['parish_id','area_new']].merge(pre[['parish_id','area_orig']], on='parish_id')
 check['pct_chg'] = (check['area_new'] - check['area_orig']) / check['area_orig'] * 100
 bad = check[check['pct_chg'].abs() > 5].sort_values('pct_chg')
 if len(bad):
+    # Add parish_name for readability in warnings
+    bad = bad.merge(gdf[['parish_id','parish_name']], on='parish_id', how='left')
     print(f"\nWARNING: {len(bad)} territories changed by >5% vs original dissolved data:")
-    print(bad[['parish_name','area_orig','area_new','pct_chg']].to_string(index=False))
+    print(bad[['parish_id','parish_name','area_orig','area_new','pct_chg']].to_string(index=False))
 else:
     print("\nArea sanity check passed: all territories within 5% of original size.")
 

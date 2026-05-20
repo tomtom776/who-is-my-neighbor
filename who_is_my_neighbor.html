@@ -143,6 +143,7 @@
     }
     .search-result-item:last-child { border-bottom: none; }
     .search-result-item:hover { background: var(--cream); }
+    .search-city { font-size: 10px; color: var(--text-ter); }
 
     /* ─── PANEL NAV ───────────────────────────────────────────── */
     #panel-nav {
@@ -510,6 +511,18 @@
       cursor: pointer;
     }
 
+    /* ─── FILTER RESET LINK ───────────────────────────────────── */
+    .reset-filters-link {
+      font-size: 11px;
+      color: var(--text-ter);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    .reset-filters-link:hover {
+      color: var(--accent-green);
+      text-decoration: underline;
+    }
+
     /* ─── SIDEBAR FOOTER ──────────────────────────────────────── */
     #sidebar-footer {
       padding: 10px 16px;
@@ -524,7 +537,7 @@
     .footer-credit a:hover { text-decoration: underline; }
 
     /* ─── MAP ─────────────────────────────────────────────────── */
-    #map { flex: 1; height: 100vh; }
+    #map { flex: 1; height: 100vh; position: relative; }
 
     /* ─── WELCOME OVERLAY ─────────────────────────────────────── */
     #welcome-overlay {
@@ -656,13 +669,129 @@
       width: 116px;
     }
 
-    /* ─── MOBILE ──────────────────────────────────────────────── */
+    /* ─── MOBILE ACTION BAR ───────────────────────────────────── */
+    #mobile-action-bar {
+      display: none;
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      z-index: 50;
+      gap: 8px;
+    }
+    .mobile-action-btn {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 7px 12px;
+      background: var(--cream-light);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-sec);
+      cursor: pointer;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.1);
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .mobile-action-btn:active {
+      background: var(--cream);
+      border-color: var(--accent-green);
+    }
+
+    /* ─── BOTTOM SHEET ────────────────────────────────────────── */
+    #bottom-sheet {
+      display: none;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 56px;
+      background: var(--cream-light);
+      border-top-left-radius: 16px;
+      border-top-right-radius: 16px;
+      z-index: 200;
+      box-shadow: 0 -4px 24px rgba(0,0,0,0.12);
+      transition: height 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+      overflow: hidden;
+    }
+
+    #bs-handle-area {
+      height: 56px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 0 16px;
+      cursor: pointer;
+      touch-action: none;
+    }
+
+    .bs-pill {
+      width: 36px;
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      margin-bottom: 8px;
+      flex-shrink: 0;
+    }
+
+    .bs-peek-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      overflow: hidden;
+    }
+
+    #bs-peek-name {
+      font-family: 'EB Garamond', Georgia, serif;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    #bs-peek-city {
+      font-size: 11px;
+      color: var(--text-ter);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    #bs-content {
+      height: calc(100% - 56px);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ─── MOBILE BREAKPOINT ───────────────────────────────────── */
     @media (max-width: 700px) {
       #sidebar { display: none; }
       #map { height: 100vh; width: 100vw; }
+      #mobile-action-bar { display: flex; }
+      #bottom-sheet { display: block; }
+
+      /* Legend: move to top-right on mobile */
+      #legend {
+        bottom: auto;
+        top: 12px;
+        right: 12px;
+      }
+
+      /* Hide zoom controls and compass on mobile */
+      .maplibregl-ctrl-group { display: none !important; }
     }
 
-    .maplibregl-ctrl-bottom-right { right: 160px !important; }
+    /* Desktop: offset MapLibre controls so they don't overlap the legend */
+    @media (min-width: 701px) {
+      .maplibregl-ctrl-bottom-right { right: 160px !important; }
+    }
   </style>
 </head>
 <body>
@@ -808,10 +937,32 @@
 <!-- ── MAP ────────────────────────────────────────────────────── -->
 <div id="map"></div>
 <div id="map-tooltip"></div>
+
+<!-- ── LEGEND ─────────────────────────────────────────────────── -->
 <div id="legend">
   <div class="legend-title" id="legend-title">Overall ministry need</div>
   <div class="legend-bar" id="legend-bar" style="background:linear-gradient(to right,#f0ebe3,#5A7A5C)"></div>
   <div class="legend-labels"><span>Low</span><span>High</span></div>
+</div>
+
+<!-- ── MOBILE ACTION BAR ──────────────────────────────────────── -->
+<div id="mobile-action-bar">
+  <button class="mobile-action-btn" onclick="openBottomSheet('layers')">🗂️ Layers</button>
+  <button class="mobile-action-btn" onclick="openBottomSheet('filters')">🎚️ Filters</button>
+</div>
+
+<!-- ── MOBILE BOTTOM SHEET ────────────────────────────────────── -->
+<div id="bottom-sheet" data-state="collapsed">
+  <div id="bs-handle-area">
+    <div class="bs-pill"></div>
+    <div class="bs-peek-row">
+      <span id="bs-peek-name">Tap a parish to explore</span>
+      <span id="bs-peek-city"></span>
+    </div>
+  </div>
+  <div id="bs-content">
+    <!-- panel-nav and panel-body are moved here on mobile by initMobileLayout() -->
+  </div>
 </div>
 
 <script>
@@ -851,13 +1002,17 @@ const ACS_FILTERS = [
 ];
 
 /* ═══════════════════════════════════════════════════════════════
+   MOBILE HELPERS
+═══════════════════════════════════════════════════════════════ */
+function isMobile() { return window.innerWidth <= 700; }
+
+/* ═══════════════════════════════════════════════════════════════
    PANEL NAV
 ═══════════════════════════════════════════════════════════════ */
 let activePanel = 'profile';
 
 function togglePanel(name) {
   if (activePanel === name) {
-    // Clicking the active panel button closes it and returns to profile
     activePanel = 'profile';
   } else {
     activePanel = name;
@@ -870,7 +1025,6 @@ function togglePanel(name) {
   document.getElementById('btn-layers').classList.toggle('active',  activePanel === 'layers');
   document.getElementById('btn-filters').classList.toggle('active', activePanel === 'filters');
 
-  // Scroll panel body to top when switching views
   document.getElementById('panel-body').scrollTop = 0;
 }
 
@@ -889,7 +1043,6 @@ function badge(lq) {
    RADAR CHART
 ═══════════════════════════════════════════════════════════════ */
 function drawRadar(props, size = 180) {
-  // Only draw the 7 named segments (skip 'total')
   const segs = SEGMENTS.filter(s => s.id !== 'total');
   const W = size, H = size, cx = W/2, cy = H/2, R = size * 0.34;
   const N = segs.length;
@@ -945,8 +1098,11 @@ function renderProfile(props) {
   document.getElementById('parish-profile').style.display = 'block';
 
   document.getElementById('profile-name').textContent = props.parish_name || 'Unknown Parish';
-  document.getElementById('profile-meta').textContent =
-    props.total_pop ? `Est. population: ${parseInt(props.total_pop).toLocaleString()}` : '';
+
+  // Build meta line: city · population
+  const city = props.city || '';
+  const popStr = props.total_pop ? `Est. population: ${parseInt(props.total_pop).toLocaleString()}` : '';
+  document.getElementById('profile-meta').textContent = [city, popStr].filter(Boolean).join(' · ');
 
   const radarWrap = document.getElementById('profile-radar');
   radarWrap.innerHTML = '';
@@ -987,6 +1143,9 @@ function renderProfile(props) {
     `;
     allEl.appendChild(row);
   });
+
+  // Update bottom sheet peek row on mobile
+  updateBsPeek(props);
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1068,6 +1227,12 @@ function renderFilters() {
     div.style.margin = '10px 0';
     el.appendChild(div);
   });
+
+  // Reset filters link
+  const resetWrap = document.createElement('div');
+  resetWrap.style.cssText = 'text-align:center;margin-top:4px;padding-bottom:4px';
+  resetWrap.innerHTML = '<a href="#" class="reset-filters-link" onclick="event.preventDefault();resetFilters()">Reset filters</a>';
+  el.appendChild(resetWrap);
 }
 
 function updateSlider(id, el, which, min, max, unit, vi, segId) {
@@ -1092,15 +1257,24 @@ function updateSlider(id, el, which, min, max, unit, vi, segId) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   RESET FILTERS
+═══════════════════════════════════════════════════════════════ */
+function resetFilters() {
+  ACS_FILTERS.forEach(grp => {
+    grp.vars.forEach(v => { v.lo = v.min; v.hi = v.max; });
+  });
+  renderFilters();
+  applyFilters();
+}
+
+/* ═══════════════════════════════════════════════════════════════
    FILTER LOGIC
 ═══════════════════════════════════════════════════════════════ */
 function featureMatchesFilters(props) {
   for (const grp of ACS_FILTERS) {
-    // Only sliders that have been moved from their default count
     const activeVars = grp.vars.filter(v => v.lo > v.min || v.hi < v.max);
     if (activeVars.length === 0) continue;
 
-    // OR within group: parish must match at least one active slider
     const groupMatch = activeVars.some(v => {
       const rawVal = parseFloat(props[v.field]);
       if (isNaN(rawVal)) return false;
@@ -1144,6 +1318,183 @@ function updateMapLayer() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   BOTTOM SHEET
+═══════════════════════════════════════════════════════════════ */
+function bsHeights() {
+  return {
+    collapsed: 56,
+    peeked: Math.round(window.innerHeight * 0.38),
+    open: Math.round(window.innerHeight * 0.88),
+  };
+}
+
+function setBottomSheetState(state) {
+  const bs = document.getElementById('bottom-sheet');
+  const h = bsHeights()[state] || 56;
+  bs.style.height = h + 'px';
+  bs.dataset.state = state;
+}
+
+function openBottomSheet(tab) {
+  togglePanel(tab);
+  setBottomSheetState('open');
+}
+
+function updateBsPeek(props) {
+  const nameEl = document.getElementById('bs-peek-name');
+  const cityEl = document.getElementById('bs-peek-city');
+  if (!nameEl) return;
+  if (!props) {
+    nameEl.textContent = 'Tap a parish to explore';
+    if (cityEl) cityEl.textContent = '';
+    return;
+  }
+  nameEl.textContent = props.parish_name || 'Unknown Parish';
+  if (cityEl) cityEl.textContent = props.city || '';
+}
+
+// Bottom sheet touch gestures (handle area only)
+(function initBsGestures() {
+  const bs = document.getElementById('bottom-sheet');
+  const handle = document.getElementById('bs-handle-area');
+  if (!bs || !handle) return;
+
+  let startY = 0, startH = 0, dragging = false;
+
+  handle.addEventListener('touchstart', e => {
+    startY = e.touches[0].clientY;
+    startH = bs.getBoundingClientRect().height;
+    dragging = false;
+    bs.style.transition = 'none';
+  }, { passive: true });
+
+  handle.addEventListener('touchmove', e => {
+    const dy = startY - e.touches[0].clientY;
+    if (Math.abs(dy) > 4) dragging = true;
+    if (!dragging) return;
+    const h = Math.max(40, Math.min(window.innerHeight * 0.95, startH + dy));
+    bs.style.height = h + 'px';
+    e.preventDefault();
+  }, { passive: false });
+
+  handle.addEventListener('touchend', () => {
+    bs.style.transition = '';
+    if (!dragging) {
+      // Tap: cycle through states
+      const state = bs.dataset.state || 'collapsed';
+      if (state === 'collapsed') setBottomSheetState('peeked');
+      else if (state === 'peeked') setBottomSheetState('open');
+      else setBottomSheetState('collapsed');
+      return;
+    }
+    // Snap to nearest height
+    const h = bs.getBoundingClientRect().height;
+    const heights = bsHeights();
+    const target = Object.entries(heights).reduce((best, [name, th]) =>
+      Math.abs(h - th) < Math.abs(h - heights[best]) ? name : best
+    , 'collapsed');
+    setBottomSheetState(target);
+  }, { passive: true });
+})();
+
+// Move panel-nav and panel-body into bottom sheet on mobile
+function initMobileLayout() {
+  if (!isMobile()) return;
+  const bsContent = document.getElementById('bs-content');
+  if (!bsContent) return;
+  const panelNav  = document.getElementById('panel-nav');
+  const panelBody = document.getElementById('panel-body');
+  if (panelNav)  bsContent.appendChild(panelNav);
+  if (panelBody) bsContent.appendChild(panelBody);
+  // Give panel-body flex growth within bottom sheet
+  if (panelBody) { panelBody.style.flex = '1'; panelBody.style.minHeight = '0'; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CROSS-IN-CIRCLE ICON (parish point marker)
+═══════════════════════════════════════════════════════════════ */
+function createCrossIcon(size) {
+  size = size || 20;
+  const canvas = document.createElement('canvas');
+  canvas.width = size; canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const cx = size / 2, cy = size / 2;
+  const r = size * 0.42;
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(253, 250, 246, 0.88)';
+  ctx.fill();
+  ctx.strokeStyle = '#9A7B3A';
+  ctx.lineWidth = 1.4;
+  ctx.stroke();
+
+  const arm = size * 0.23;
+  ctx.lineCap = 'round';
+  ctx.lineWidth = 1.4;
+  ctx.strokeStyle = '#9A7B3A';
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - arm); ctx.lineTo(cx, cy + arm);
+  ctx.moveTo(cx - arm, cy); ctx.lineTo(cx + arm, cy);
+  ctx.stroke();
+
+  return ctx.getImageData(0, 0, size, size);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   TEXAS MASK
+═══════════════════════════════════════════════════════════════ */
+const TX_STATES_URL = 'https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/us-states.json';
+
+function addTexasMask(statesGeoJson) {
+  if (!statesGeoJson || !map.getLayer('parishes-fill')) return;
+  try {
+    const texas = statesGeoJson.features.find(f =>
+      f.properties && (f.properties.name === 'Texas' || f.properties.NAME === 'Texas')
+    );
+    if (!texas) return;
+
+    // Get the main exterior ring of Texas
+    let txRing;
+    if (texas.geometry.type === 'Polygon') {
+      txRing = texas.geometry.coordinates[0];
+    } else if (texas.geometry.type === 'MultiPolygon') {
+      // Pick the largest polygon
+      txRing = texas.geometry.coordinates
+        .sort((a, b) => b[0].length - a[0].length)[0][0];
+    }
+    if (!txRing) return;
+
+    // World outer ring (CCW) with Texas as hole (CW — reverse if needed)
+    const worldRing = [[-180,-90],[180,-90],[180,90],[-180,90],[-180,-90]];
+
+    map.addSource('tx-mask', {
+      type: 'geojson',
+      data: {
+        type: 'Feature',
+        geometry: {
+          type: 'Polygon',
+          coordinates: [worldRing, txRing],
+        },
+        properties: {},
+      }
+    });
+
+    map.addLayer({
+      id: 'tx-mask',
+      type: 'fill',
+      source: 'tx-mask',
+      paint: {
+        'fill-color': '#C8C3BB',
+        'fill-opacity': 0.38,
+      }
+    }, 'parishes-fill'); // insert below parish fill
+  } catch(e) {
+    console.warn('Texas mask error:', e);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
    MAP INIT
 ═══════════════════════════════════════════════════════════════ */
 let map;
@@ -1151,13 +1502,17 @@ let allFeatures = [];
 let lockedFeatureId = null;
 let hoveredFeatureId = null;
 
-const DATA_PATH = 'data/output/parish_territories_final.geojson';
+const DATA_PATH   = 'data/output/parish_territories_final.geojson';
+const POINTS_PATH = 'data/raw/parishes_archgh.geojson';
 
 map = new maplibregl.Map({
   container: 'map',
-  style: 'https://tiles.stadiamaps.com/styles/alidade_smooth.json',
+  // Warm terrain basemap: hillshade, contours, roads, county lines, buildings at zoom 14+
+  style: 'https://tiles.stadiamaps.com/styles/stamen_terrain.json',
   center: [-95.37, 29.76],
   zoom: 9,
+  // Limit extent to contiguous United States
+  maxBounds: [[-135, 22], [-60, 52]],
   attributionControl: false,
 });
 
@@ -1166,6 +1521,20 @@ map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-rig
 
 map.on('load', () => {
 
+  // Fetch Texas mask from CDN in parallel (non-blocking; gracefully skipped on failure)
+  let pendingTxMask = null;
+  fetch(TX_STATES_URL)
+    .then(r => r.json())
+    .then(statesGeoJson => {
+      if (map.getLayer('parishes-fill')) {
+        addTexasMask(statesGeoJson);
+      } else {
+        pendingTxMask = statesGeoJson;
+      }
+    })
+    .catch(() => {});
+
+  // Load parish territory polygons from local file
   fetch(DATA_PATH)
     .then(r => {
       if (!r.ok) throw new Error(`Could not load GeoJSON: ${r.status}`);
@@ -1173,7 +1542,7 @@ map.on('load', () => {
     })
     .then(geojson => {
 
-      // Assign IDs and compute lq_total as average of all 7 segment LQs
+      // Assign sequential IDs and compute lq_total
       geojson.features.forEach((f, i) => {
         f.id = i;
         const p = f.properties;
@@ -1190,7 +1559,6 @@ map.on('load', () => {
         generateId: false,
       });
 
-      // Default paint uses lq_total
       map.addLayer({
         id: 'parishes-fill',
         type: 'fill',
@@ -1230,29 +1598,91 @@ map.on('load', () => {
         }
       });
 
-      map.addLayer({
-        id: 'parishes-labels',
-        type: 'symbol',
-        source: 'parishes',
-        minzoom: 11,
-        layout: {
-          'text-field': ['get','parish_name'],
-          'text-font': ['Open Sans Regular'],
-          'text-size': 10,
-          'text-max-width': 8,
-        },
-        paint: {
-          'text-color': '#2C2A26',
-          'text-halo-color': '#FDFAF6',
-          'text-halo-width': 1.5,
-        }
-      });
-
-      buildSearchIndex(geojson.features);
-
+      // Mark all features as filtered-in by default, then trigger repaint
       allFeatures.forEach(f => {
         map.setFeatureState({ source:'parishes', id:f.id }, { filtered:true });
       });
+      map.triggerRepaint();
+
+      buildSearchIndex(geojson.features);
+
+      // Apply pending Texas mask if it arrived before parishes were ready
+      if (pendingTxMask) {
+        addTexasMask(pendingTxMask);
+        pendingTxMask = null;
+      }
+
+      // Load parish point locations for markers and deduplicated labels
+      fetch(POINTS_PATH)
+        .then(r => r.json())
+        .then(ptGeoJson => {
+          map.addSource('parishes-points', {
+            type: 'geojson',
+            data: ptGeoJson,
+          });
+
+          // Register cross-in-circle icon
+          map.addImage('parish-cross', createCrossIcon(20));
+
+          // Parish location markers (subtle cross symbol, always visible)
+          map.addLayer({
+            id: 'parishes-dots',
+            type: 'symbol',
+            source: 'parishes-points',
+            layout: {
+              'icon-image': 'parish-cross',
+              'icon-size': 0.75,
+              'icon-allow-overlap': false,
+              'icon-ignore-placement': false,
+            },
+          });
+
+          // Boundary labels: use point source for guaranteed single label per parish
+          map.addLayer({
+            id: 'parishes-labels',
+            type: 'symbol',
+            source: 'parishes-points',
+            minzoom: 11,
+            layout: {
+              'text-field': ['get', 'name'],
+              'text-font': ['Open Sans Regular'],
+              'text-size': 10,
+              'text-max-width': 8,
+              'text-offset': [0, 1.0],
+              'text-anchor': 'top',
+              'symbol-avoid-edges': true,
+              'text-allow-overlap': false,
+            },
+            paint: {
+              'text-color': '#2C2A26',
+              'text-halo-color': '#FDFAF6',
+              'text-halo-width': 1.5,
+            }
+          });
+        })
+        .catch(() => {
+          // Fallback: polygon-based labels (may show duplicates for same-name parishes
+          // until pipeline is re-run to add parish_id)
+          map.addLayer({
+            id: 'parishes-labels',
+            type: 'symbol',
+            source: 'parishes',
+            minzoom: 11,
+            layout: {
+              'text-field': ['get','parish_name'],
+              'text-font': ['Open Sans Regular'],
+              'text-size': 10,
+              'text-max-width': 8,
+              'symbol-avoid-edges': true,
+              'text-allow-overlap': false,
+            },
+            paint: {
+              'text-color': '#2C2A26',
+              'text-halo-color': '#FDFAF6',
+              'text-halo-width': 1.5,
+            }
+          });
+        });
 
     })
     .catch(err => {
@@ -1280,7 +1710,6 @@ map.on('load', () => {
 
     if (lockedFeatureId === null) {
       renderProfile(f.properties);
-      // Show profile view when hovering (don't interrupt layers/filters panels)
       if (activePanel !== 'layers' && activePanel !== 'filters') {
         document.getElementById('welcome-state').style.display = 'none';
         document.getElementById('parish-profile').style.display = 'block';
@@ -1288,7 +1717,8 @@ map.on('load', () => {
     }
 
     const tip = document.getElementById('map-tooltip');
-    tip.textContent = f.properties.parish_name || '';
+    const city = f.properties.city ? ` — ${f.properties.city}` : '';
+    tip.textContent = (f.properties.parish_name || '') + city;
     tip.style.display = 'block';
     tip.style.left = (e.originalEvent.clientX + 14) + 'px';
     tip.style.top  = (e.originalEvent.clientY - 10) + 'px';
@@ -1313,17 +1743,14 @@ map.on('load', () => {
     const f = e.features[0];
     if (!f) return;
 
-    // Unlock previous selection and clear any lingering hover outline
     if (lockedFeatureId !== null) {
       map.setFeatureState({ source:'parishes', id:lockedFeatureId }, { locked:false, hovered:false });
     }
 
-    // Always lock the newly clicked parish
     lockedFeatureId = f.id;
     map.setFeatureState({ source:'parishes', id:f.id }, { locked:true });
     renderProfile(f.properties);
 
-    // Switch to profile view to show the parish details
     if (activePanel !== 'profile') {
       activePanel = 'profile';
       document.getElementById('profile-view').style.display  = 'block';
@@ -1331,6 +1758,14 @@ map.on('load', () => {
       document.getElementById('filters-view').style.display  = 'none';
       document.getElementById('btn-layers').classList.remove('active');
       document.getElementById('btn-filters').classList.remove('active');
+    }
+
+    // On mobile: open bottom sheet to peeked state when a parish is selected
+    if (isMobile()) {
+      const bs = document.getElementById('bottom-sheet');
+      if (bs && bs.dataset.state === 'collapsed') {
+        setBottomSheetState('peeked');
+      }
     }
   });
 
@@ -1340,6 +1775,7 @@ map.on('load', () => {
     if (features.length === 0 && lockedFeatureId !== null) {
       map.setFeatureState({ source:'parishes', id:lockedFeatureId }, { locked:false });
       lockedFeatureId = null;
+      updateBsPeek(null);
       if (activePanel === 'profile') {
         document.getElementById('welcome-state').style.display = 'block';
         document.getElementById('parish-profile').style.display = 'none';
@@ -1358,6 +1794,7 @@ function buildSearchIndex(features) {
   searchIndex = features.map(f => ({
     id: f.id,
     name: f.properties.parish_name || '',
+    city: f.properties.city || '',
     props: f.properties,
     coords: f.geometry.type === 'Polygon'
       ? f.geometry.coordinates[0][0]
@@ -1373,14 +1810,17 @@ searchInput.addEventListener('input', () => {
   if (q.length < 2) { searchResults.style.display = 'none'; return; }
 
   const matches = searchIndex
-    .filter(p => p.name.toLowerCase().includes(q))
+    .filter(p => p.name.toLowerCase().includes(q) || p.city.toLowerCase().includes(q))
     .slice(0, 8);
 
   if (matches.length === 0) { searchResults.style.display = 'none'; return; }
 
-  searchResults.innerHTML = matches.map(p =>
-    `<div class="search-result-item" data-id="${p.id}">${p.name}</div>`
-  ).join('');
+  searchResults.innerHTML = matches.map(p => {
+    const cityHtml = p.city
+      ? ` <span class="search-city">${p.city}</span>`
+      : '';
+    return `<div class="search-result-item" data-id="${p.id}">${p.name}${cityHtml}</div>`;
+  }).join('');
   searchResults.style.display = 'block';
 
   searchResults.querySelectorAll('.search-result-item').forEach(item => {
@@ -1401,13 +1841,14 @@ searchInput.addEventListener('input', () => {
       map.setFeatureState({ source:'parishes', id }, { locked:true });
       renderProfile(parish.props);
 
-      // Show profile view
       activePanel = 'profile';
       document.getElementById('profile-view').style.display  = 'block';
       document.getElementById('layers-view').style.display   = 'none';
       document.getElementById('filters-view').style.display  = 'none';
       document.getElementById('btn-layers').classList.remove('active');
       document.getElementById('btn-filters').classList.remove('active');
+
+      if (isMobile()) setBottomSheetState('peeked');
     });
   });
 });
@@ -1437,6 +1878,7 @@ document.getElementById('welcome-overlay').addEventListener('click', e => {
 ═══════════════════════════════════════════════════════════════ */
 renderLayers();
 renderFilters();
+initMobileLayout();
 
 </script>
 </body>

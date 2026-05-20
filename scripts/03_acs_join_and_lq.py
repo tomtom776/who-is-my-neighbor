@@ -45,12 +45,22 @@ count_vars = [
 # Only sum columns that actually exist in the merged dataframe
 count_vars = [c for c in count_vars if c in tracts_acs.columns]
 
+# Group by parish_id (unique) so same-named parishes in different cities stay separate
 parish_acs = (
     tracts_acs
-    .groupby('parish_name')[count_vars]
+    .groupby('parish_id')[count_vars]
     .sum()
     .reset_index()
 )
+
+# Bring parish_name and city back (first value per parish_id)
+name_city = (
+    tracts_acs
+    .groupby('parish_id')[['parish_name', 'city']]
+    .first()
+    .reset_index()
+)
+parish_acs = parish_acs.merge(name_city, on='parish_id')
 
 # Weighted average for median household income
 tracts_acs['income_weight'] = (
@@ -58,7 +68,7 @@ tracts_acs['income_weight'] = (
 )
 income_agg = (
     tracts_acs
-    .groupby('parish_name')[['income_weight', 'total_households']]
+    .groupby('parish_id')[['income_weight', 'total_households']]
     .sum()
     .reset_index()
 )
@@ -66,8 +76,8 @@ income_agg['median_hh_income_wtd'] = (
     income_agg['income_weight'] / income_agg['total_households']
 )
 parish_acs = parish_acs.merge(
-    income_agg[['parish_name', 'median_hh_income_wtd']],
-    on='parish_name',
+    income_agg[['parish_id', 'median_hh_income_wtd']],
+    on='parish_id',
 )
 
 # ── Segment indices ──────────────────────────────────────────────────────────

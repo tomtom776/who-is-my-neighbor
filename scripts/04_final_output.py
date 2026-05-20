@@ -32,13 +32,14 @@ pct_cols = [
     'median_hh_income_wtd', 'total_pop', 'total_households',
 ]
 
-# Only join columns that exist in parish_acs
+# Only join columns that exist in parish_acs; join on parish_id (unique)
+# parish_name and city come from parish_territories, not from parish_acs
 available_pct = [c for c in pct_cols if c in parish_acs.columns]
-join_cols = ['parish_name'] + lq_cols + available_pct
+join_cols = ['parish_id'] + lq_cols + available_pct
 
 final = parish_territories.merge(
     parish_acs[join_cols],
-    on='parish_name',
+    on='parish_id',
     how='left',
 )
 
