@@ -9,6 +9,15 @@
   <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-K890H6WS2P"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-K890H6WS2P');
+  </script>
+
   <style>
     /* ─── TOKENS ─────────────────────────────────────────────── */
     :root {
@@ -630,6 +639,13 @@
       letter-spacing: 0.02em;
     }
     .overlay-btn:hover { background: #4a6b4c; }
+    .overlay-analytics-notice {
+      font-size: 10px;
+      color: var(--text-ter);
+      text-align: center;
+      margin-top: 14px;
+      line-height: 1.5;
+    }
 
     /* ─── MAP TOOLTIP ─────────────────────────────────────────── */
     #map-tooltip {
@@ -830,6 +846,7 @@
       </div>
     </div>
     <button class="overlay-btn" onclick="dismissOverlay()">Explore the map</button>
+    <p class="overlay-analytics-notice">This site uses Google Analytics to understand how people explore the map. No personal information is collected.</p>
   </div>
 </div>
 
@@ -1671,16 +1688,16 @@ function initMap(style) {
           // Register cross-in-circle icon
           map.addImage('parish-cross', createCrossIcon(20));
 
-          // Parish location markers (subtle cross symbol, always visible)
+          // Parish location markers (cross-in-circle, warm gold, always visible)
           map.addLayer({
             id: 'parishes-dots',
             type: 'symbol',
             source: 'parishes-points',
             layout: {
               'icon-image': 'parish-cross',
-              'icon-size': 0.75,
-              'icon-allow-overlap': false,
-              'icon-ignore-placement': false,
+              'icon-size': 1.0,
+              'icon-allow-overlap': true,
+              'icon-ignore-placement': true,
             },
           });
 
