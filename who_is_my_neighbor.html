@@ -1676,77 +1676,80 @@ function initMap(style) {
         pendingTxMask = null;
       }
 
-      // Load parish point locations for markers and deduplicated labels
-      fetch(POINTS_PATH)
-        .then(r => r.json())
-        .then(ptGeoJson => {
-          map.addSource('parishes-points', {
-            type: 'geojson',
-            data: ptGeoJson,
-          });
+      // Derive point locations from polygon centroids (no separate points file needed)
+      (function addParishPoints() {
+        function ringCentroid(ring) {
+          let x = 0, y = 0;
+          for (const [cx, cy] of ring) { x += cx; y += cy; }
+          return [x / ring.length, y / ring.length];
+        }
 
-          // Register cross-in-circle icon
-          map.addImage('parish-cross', createCrossIcon(20));
-
-          // Parish location markers (cross-in-circle, warm gold, always visible)
-          map.addLayer({
-            id: 'parishes-dots',
-            type: 'symbol',
-            source: 'parishes-points',
-            layout: {
-              'icon-image': 'parish-cross',
-              'icon-size': 1.0,
-              'icon-allow-overlap': true,
-              'icon-ignore-placement': true,
-            },
-          });
-
-          // Boundary labels: use point source for guaranteed single label per parish
-          map.addLayer({
-            id: 'parishes-labels',
-            type: 'symbol',
-            source: 'parishes-points',
-            minzoom: 11,
-            layout: {
-              'text-field': ['get', 'name'],
-              'text-font': ['Open Sans Regular'],
-              'text-size': 10,
-              'text-max-width': 8,
-              'text-offset': [0, 1.0],
-              'text-anchor': 'top',
-              'symbol-avoid-edges': true,
-              'text-allow-overlap': false,
-            },
-            paint: {
-              'text-color': '#2C2A26',
-              'text-halo-color': '#FDFAF6',
-              'text-halo-width': 1.5,
+        const ptGeoJson = {
+          type: 'FeatureCollection',
+          features: geojson.features.map(f => {
+            const geom = f.geometry;
+            let coord;
+            if (geom.type === 'Polygon') {
+              coord = ringCentroid(geom.coordinates[0]);
+            } else if (geom.type === 'MultiPolygon') {
+              // Use the largest outer ring
+              let largest = geom.coordinates[0][0];
+              for (const poly of geom.coordinates) {
+                if (poly[0].length > largest.length) largest = poly[0];
+              }
+              coord = ringCentroid(largest);
+            } else {
+              return null;
             }
-          });
-        })
-        .catch(() => {
-          // Fallback: polygon-based labels (may show duplicates for same-name parishes
-          // until pipeline is re-run to add parish_id)
-          map.addLayer({
-            id: 'parishes-labels',
-            type: 'symbol',
-            source: 'parishes',
-            minzoom: 11,
-            layout: {
-              'text-field': ['get','parish_name'],
-              'text-font': ['Open Sans Regular'],
-              'text-size': 10,
-              'text-max-width': 8,
-              'symbol-avoid-edges': true,
-              'text-allow-overlap': false,
-            },
-            paint: {
-              'text-color': '#2C2A26',
-              'text-halo-color': '#FDFAF6',
-              'text-halo-width': 1.5,
-            }
-          });
+            return {
+              type: 'Feature',
+              geometry: { type: 'Point', coordinates: coord },
+              properties: { name: f.properties.parish_name, parish_id: f.properties.parish_id },
+            };
+          }).filter(Boolean),
+        };
+
+        map.addSource('parishes-points', { type: 'geojson', data: ptGeoJson });
+
+        // Register cross-in-circle icon
+        map.addImage('parish-cross', createCrossIcon(20));
+
+        // Parish location markers (cross-in-circle, warm gold, always visible)
+        map.addLayer({
+          id: 'parishes-dots',
+          type: 'symbol',
+          source: 'parishes-points',
+          layout: {
+            'icon-image': 'parish-cross',
+            'icon-size': 1.0,
+            'icon-allow-overlap': true,
+            'icon-ignore-placement': true,
+          },
         });
+
+        // Boundary labels: use point source for guaranteed single label per parish
+        map.addLayer({
+          id: 'parishes-labels',
+          type: 'symbol',
+          source: 'parishes-points',
+          minzoom: 11,
+          layout: {
+            'text-field': ['get', 'name'],
+            'text-font': ['Open Sans Regular'],
+            'text-size': 10,
+            'text-max-width': 8,
+            'text-offset': [0, 1.0],
+            'text-anchor': 'top',
+            'symbol-avoid-edges': true,
+            'text-allow-overlap': false,
+          },
+          paint: {
+            'text-color': '#2C2A26',
+            'text-halo-color': '#FDFAF6',
+            'text-halo-width': 1.5,
+          }
+        });
+      })();
 
     })
     .catch(err => {
